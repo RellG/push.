@@ -85,3 +85,24 @@ Use seeded demo data, then capture:
 ## Current Notes
 
 `lucide_icons` is included as required by the brief, but version `0.257.0` does not compile on the current Flutter SDK because it extends Flutter's final `IconData` class. The app avoids importing it until a compatible package version is available.
+
+### Android build: isar_flutter_libs patch
+
+`isar_flutter_libs 3.1.0+1` was published before AGP 8 made `namespace` mandatory and before transitive AndroidX deps required `compileSdk 34+`. After a fresh `flutter pub get`, patch `~/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.0+1/android/build.gradle` so the `android { ... }` block reads:
+
+```gradle
+android {
+    namespace 'dev.isar.isar_flutter_libs'
+    compileSdkVersion 36
+
+    defaultConfig {
+        minSdkVersion 21
+    }
+}
+```
+
+Until the Isar maintainers ship a fix (or we vendor a local fork via `dependency_overrides`), this manual edit is required on every clean machine.
+
+### Android build: core library desugaring
+
+`flutter_local_notifications` requires Java 8+ APIs that aren't available on older `minSdk` levels, so `android/app/build.gradle.kts` enables `isCoreLibraryDesugaringEnabled` and pulls in `com.android.tools:desugar_jdk_libs`. Don't remove either line.
