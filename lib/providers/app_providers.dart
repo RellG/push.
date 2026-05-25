@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
@@ -11,6 +12,9 @@ import 'package:push_app/data/repositories/set_repository.dart';
 import 'package:push_app/domain/models/push_stats.dart';
 import 'package:push_app/domain/services/stats_calculator.dart';
 import 'package:push_app/domain/services/streak_calculator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const onboardingCompleteKey = 'onboarding_complete';
 
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
@@ -20,6 +24,15 @@ final todayDateProvider = Provider<String>((ref) {
 
 final isarProvider = FutureProvider<Isar>((ref) {
   return openPushDatabase();
+});
+
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
+  return SharedPreferences.getInstance();
+});
+
+final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
+  final preferences = await ref.watch(sharedPreferencesProvider.future);
+  return preferences.getBool(onboardingCompleteKey) ?? false;
 });
 
 final profileRepositoryProvider = FutureProvider<ProfileRepository>((
@@ -42,6 +55,44 @@ final setRepositoryProvider = FutureProvider<SetRepository>((ref) async {
 final profileProvider = StreamProvider<Profile?>((ref) async* {
   final repository = await ref.watch(profileRepositoryProvider.future);
   yield* repository.watchProfile();
+});
+
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  final profile = ref.watch(profileProvider);
+  return profile.maybeWhen(
+    data: (value) => switch (value?.themeMode) {
+      'light' => ThemeMode.light,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.dark,
+    },
+    orElse: () => ThemeMode.dark,
+  );
+});
+
+typedef CompleteOnboarding =
+    Future<void> Function({
+      required String name,
+      required int currentGoal,
+      required String themeMode,
+    });
+
+final completeOnboardingProvider = Provider<CompleteOnboarding>((ref) {
+  return ({
+    required String name,
+    required int currentGoal,
+    required String themeMode,
+  }) async {
+    final profileRepository = await ref.read(profileRepositoryProvider.future);
+    final preferences = await ref.read(sharedPreferencesProvider.future);
+
+    await profileRepository.saveProfile(
+      name: name,
+      currentGoal: currentGoal,
+      themeMode: themeMode,
+    );
+    await preferences.setBool(onboardingCompleteKey, true);
+    ref.invalidate(onboardingCompleteProvider);
+  };
 });
 
 final todayProvider = StreamProvider<DayLog?>((ref) async* {
