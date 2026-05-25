@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
@@ -134,6 +136,45 @@ final logSetProvider = Provider<LogSet>((ref) {
       ..invalidate(todaySetsProvider)
       ..invalidate(allDaysProvider)
       ..invalidate(allSetsProvider);
+  };
+});
+
+final exportJsonProvider = Provider<Future<String> Function()>((ref) {
+  return () async {
+    final isar = await ref.read(isarProvider.future);
+    final profile = await isar.profiles.where().findFirst();
+    final days = await isar.dayLogs.where().sortByDate().findAll();
+    final sets = await isar.pushupSets.where().sortByLoggedAt().findAll();
+
+    return const JsonEncoder.withIndent('  ').convert({
+      'profile': profile == null
+          ? null
+          : {
+              'name': profile.name,
+              'currentGoal': profile.currentGoal,
+              'themeMode': profile.themeMode,
+              'createdAt': profile.createdAt.toIso8601String(),
+            },
+      'days': [
+        for (final day in days)
+          {
+            'date': day.date,
+            'goal': day.goal,
+            'totalReps': day.totalReps,
+            'completedAt': day.completedAt?.toIso8601String(),
+            'setIds': day.setIds,
+          },
+      ],
+      'sets': [
+        for (final set in sets)
+          {
+            'id': set.id,
+            'reps': set.reps,
+            'loggedAt': set.loggedAt.toIso8601String(),
+            'note': set.note,
+          },
+      ],
+    });
   };
 });
 

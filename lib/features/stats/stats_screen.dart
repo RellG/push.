@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:push_app/app/router.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
 import 'package:push_app/domain/models/chart_point.dart';
@@ -31,7 +33,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                Text('Stats', style: Theme.of(context).textTheme.displaySmall),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Stats',
+                        style: Theme.of(context).textTheme.displaySmall,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Settings',
+                      onPressed: () => context.push(AppRoutes.settings),
+                      icon: const Icon(Icons.settings_outlined),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 stats.when(
                   data: _buildStats,
