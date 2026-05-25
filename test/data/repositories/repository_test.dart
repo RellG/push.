@@ -105,4 +105,27 @@ void main() {
     expect(day.setIds, isEmpty);
     expect(sets, isEmpty);
   });
+
+  test('goal completion is stamped when total reaches the day goal', () async {
+    final setRepository = SetRepository(isar);
+    final dayRepository = DayRepository(isar);
+    final loggedAt = DateTime(2026, 5, 25, 7, 30);
+
+    await setRepository.addSet(
+      reps: 40,
+      loggedAt: loggedAt,
+      dailyGoal: 100,
+    );
+    await setRepository.addSet(
+      reps: 60,
+      loggedAt: loggedAt.add(const Duration(hours: 2)),
+      dailyGoal: 100,
+    );
+
+    final day = await dayRepository.findByDate('2026-05-25');
+
+    expect(day, isNotNull);
+    expect(day!.totalReps, 100);
+    expect(day.completedAt, loggedAt.add(const Duration(hours: 2)));
+  });
 }

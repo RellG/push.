@@ -4,15 +4,38 @@ import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
 import 'package:push_app/data/db/entities/pushup_set.dart';
+import 'package:push_app/presentation/widgets/goal_celebration_layer.dart';
 import 'package:push_app/presentation/widgets/progress_ring.dart';
 import 'package:push_app/presentation/widgets/quick_add_row.dart';
 import 'package:push_app/providers/app_providers.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _celebrationKey = GlobalKey<GoalCelebrationLayerState>();
+  var _hasSeenToday = false;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<DayLog?>>(todayProvider, (previous, next) {
+      final day = next.valueOrNull;
+      if (day == null) {
+        return;
+      }
+
+      final wasComplete = previous?.valueOrNull?.completedAt != null;
+      final isComplete = day.completedAt != null;
+      if (_hasSeenToday && !wasComplete && isComplete) {
+        _celebrationKey.currentState?.play();
+      }
+      _hasSeenToday = true;
+    });
+
     final profile = ref.watch(profileProvider);
     final today = ref.watch(todayProvider);
     final sets = ref.watch(todaySetsProvider);
@@ -24,70 +47,76 @@ class HomeScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: RefreshIndicator(
-              onRefresh: () async {
-                ref
-                  ..invalidate(todayProvider)
-                  ..invalidate(todaySetsProvider)
-                  ..invalidate(streakProvider);
-              },
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                      child: _HomeHeader(streak: streak),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: today.when(
-                        data: (day) => _ProgressSection(
-                          day: day,
-                          goal: day?.goal ?? goal ?? 100,
-                        ),
-                        error: (error, stackTrace) => _MessageState(
-                          title: 'Unable to load today',
-                          detail: error.toString(),
-                        ),
-                        loading: () => const _LoadingBlock(height: 248),
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 32, 24, 8),
-                      child: QuickAddRow(
-                        onAdd: (reps) => ref.read(logSetProvider)(reps: reps),
-                      ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                    sliver: sets.when(
-                      data: (value) => _SetsList(sets: value),
-                      error: (error, stackTrace) => SliverToBoxAdapter(
-                        child: _MessageState(
-                          title: 'Unable to load sets',
-                          detail: error.toString(),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    ref
+                      ..invalidate(todayProvider)
+                      ..invalidate(todaySetsProvider)
+                      ..invalidate(streakProvider);
+                  },
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                          child: _HomeHeader(streak: streak),
                         ),
                       ),
-                      loading: () => const SliverToBoxAdapter(
-                        child: _LoadingBlock(height: 160),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: today.when(
+                            data: (day) => _ProgressSection(
+                              day: day,
+                              goal: day?.goal ?? goal ?? 100,
+                            ),
+                            error: (error, stackTrace) => _MessageState(
+                              title: 'Unable to load today',
+                              detail: error.toString(),
+                            ),
+                            loading: () => const _LoadingBlock(height: 248),
+                          ),
+                        ),
                       ),
-                    ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 32, 24, 8),
+                          child: QuickAddRow(
+                            onAdd: (reps) =>
+                                ref.read(logSetProvider)(reps: reps),
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                        sliver: sets.when(
+                          data: (value) => _SetsList(sets: value),
+                          error: (error, stackTrace) => SliverToBoxAdapter(
+                            child: _MessageState(
+                              title: 'Unable to load sets',
+                              detail: error.toString(),
+                            ),
+                          ),
+                          loading: () => const SliverToBoxAdapter(
+                            child: _LoadingBlock(height: 160),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+          GoalCelebrationLayer(key: _celebrationKey),
+        ],
       ),
     );
   }
