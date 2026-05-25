@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:push_app/features/history/history_screen.dart';
 import 'package:push_app/features/home/home_screen.dart';
 import 'package:push_app/features/onboarding/onboarding_screen.dart';
+import 'package:push_app/features/stats/stats_placeholder_screen.dart';
 import 'package:push_app/providers/app_providers.dart';
 
 abstract final class AppRoutes {
   static const root = '/';
   static const onboarding = '/onboarding';
   static const home = '/home';
+  static const history = '/history';
+  static const stats = '/stats';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -42,6 +46,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const HomeScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.history,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const HistoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.stats,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const StatsPlaceholderScreen(),
         ),
       ),
     ],

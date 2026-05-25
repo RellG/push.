@@ -4,6 +4,7 @@ import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
 import 'package:push_app/data/db/entities/pushup_set.dart';
+import 'package:push_app/presentation/widgets/app_bottom_nav.dart';
 import 'package:push_app/presentation/widgets/goal_celebration_layer.dart';
 import 'package:push_app/presentation/widgets/progress_ring.dart';
 import 'package:push_app/presentation/widgets/quick_add_row.dart';
@@ -47,6 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     return Scaffold(
+      bottomNavigationBar: const AppBottomNav(currentIndex: 0),
       body: Stack(
         children: [
           SafeArea(
