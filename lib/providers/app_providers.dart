@@ -178,6 +178,62 @@ final exportJsonProvider = Provider<Future<String> Function()>((ref) {
   };
 });
 
+final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
+  return () async {
+    final isar = await ref.read(isarProvider.future);
+    final now = ref.read(clockProvider)();
+    final today = DateTime(now.year, now.month, now.day);
+
+    await isar.writeTxn(() async {
+      final existingProfile = await isar.profiles.where().findFirst();
+      if (existingProfile == null) {
+        final profile = Profile()
+          ..name = 'Demo'
+          ..currentGoal = 100
+          ..themeMode = 'dark'
+          ..createdAt = now;
+        await isar.profiles.put(profile);
+      }
+
+      for (var offset = 0; offset < 90; offset += 1) {
+        final date = today.subtract(Duration(days: offset));
+        final key = localDateKey(date);
+        final existingDay = await isar.dayLogs.getByDate(key);
+        if (existingDay != null) {
+          continue;
+        }
+
+        final reps = offset % 6 == 0 ? 0 : 45 + ((offset * 17) % 95);
+        final setIds = <int>[];
+        if (reps > 0) {
+          final set = PushupSet()
+            ..reps = reps
+            ..loggedAt = DateTime(date.year, date.month, date.day, 12);
+          set.id = await isar.pushupSets.put(set);
+          setIds.add(set.id);
+        }
+
+        final day = DayLog()
+          ..date = key
+          ..goal = 100
+          ..totalReps = reps
+          ..setIds = setIds
+          ..completedAt = reps >= 100
+              ? DateTime(date.year, date.month, date.day, 12)
+              : null;
+        await isar.dayLogs.putByDate(day);
+      }
+    });
+
+    ref
+      ..invalidate(profileProvider)
+      ..invalidate(todayProvider)
+      ..invalidate(todaySetsProvider)
+      ..invalidate(allDaysProvider)
+      ..invalidate(allSetsProvider);
+  };
+});
+
 final allDaysProvider = StreamProvider<List<DayLog>>((ref) async* {
   final isar = await ref.watch(isarProvider.future);
   yield* isar.dayLogs.where().watch(fireImmediately: true);

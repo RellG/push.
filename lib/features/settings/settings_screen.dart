@@ -116,6 +116,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     label: const Text('Export JSON'),
                   ),
                 ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _seedDemoData,
+                  icon: const Icon(Icons.auto_graph_outlined),
+                  label: const Text('Seed demo data'),
+                ),
               ],
             ),
           ),
@@ -178,6 +184,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _seedDemoData() async {
+    await ref.read(seedDemoDataProvider)();
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Demo data seeded')),
     );
   }
 }
