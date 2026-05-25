@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:push_app/app/theme/theme.dart';
 
 class PushApp extends StatelessWidget {
@@ -6,13 +7,15 @@ class PushApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Push.',
-      theme: PushTheme.light(),
-      darkTheme: PushTheme.dark(),
-      themeMode: ThemeMode.dark,
-      home: const _BootstrapScreen(),
+    return ProviderScope(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Push.',
+        theme: PushTheme.light(),
+        darkTheme: PushTheme.dark(),
+        themeMode: ThemeMode.dark,
+        home: const _BootstrapScreen(),
+      ),
     );
   }
 }
