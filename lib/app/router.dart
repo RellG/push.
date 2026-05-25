@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:push_app/features/history/history_screen.dart';
 import 'package:push_app/features/home/home_screen.dart';
 import 'package:push_app/features/onboarding/onboarding_screen.dart';
-import 'package:push_app/features/stats/stats_placeholder_screen.dart';
+import 'package:push_app/features/stats/stats_screen.dart';
 import 'package:push_app/providers/app_providers.dart';
 
 abstract final class AppRoutes {
@@ -59,7 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.stats,
         pageBuilder: (context, state) => _fadePage(
           state: state,
-          child: const StatsPlaceholderScreen(),
+          child: const StatsScreen(),
         ),
       ),
     ],
