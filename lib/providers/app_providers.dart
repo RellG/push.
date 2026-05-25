@@ -101,6 +101,42 @@ final todayProvider = StreamProvider<DayLog?>((ref) async* {
   yield* repository.watchByDate(date);
 });
 
+final todaySetsProvider = FutureProvider<List<PushupSet>>((ref) async {
+  final day = await ref.watch(todayProvider.future);
+  if (day == null) {
+    return <PushupSet>[];
+  }
+
+  final repository = await ref.watch(setRepositoryProvider.future);
+  return repository.findSetsForDay(day);
+});
+
+typedef LogSet =
+    Future<void> Function({
+      required int reps,
+      String? note,
+    });
+
+final logSetProvider = Provider<LogSet>((ref) {
+  return ({required int reps, String? note}) async {
+    final profileRepository = await ref.read(profileRepositoryProvider.future);
+    final setRepository = await ref.read(setRepositoryProvider.future);
+    final profile = await profileRepository.getProfile();
+
+    await setRepository.addSet(
+      reps: reps,
+      loggedAt: ref.read(clockProvider)(),
+      dailyGoal: profile?.currentGoal ?? 100,
+      note: note,
+    );
+    ref
+      ..invalidate(todayProvider)
+      ..invalidate(todaySetsProvider)
+      ..invalidate(allDaysProvider)
+      ..invalidate(allSetsProvider);
+  };
+});
+
 final allDaysProvider = StreamProvider<List<DayLog>>((ref) async* {
   final isar = await ref.watch(isarProvider.future);
   yield* isar.dayLogs.where().watch(fireImmediately: true);
