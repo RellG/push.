@@ -200,7 +200,7 @@ All providers live in `lib/providers/app_providers.dart`.
 | Provider | Type | What it gives |
 |---|---|---|
 | `clockProvider` | `Provider<DateTime Function()>` | Injectable clock — always use instead of `DateTime.now()` directly |
-| `todayDateProvider` | `Provider<String>` | Today's date key, e.g. `'2026-05-25'` |
+| `todayDateProvider` | `StreamProvider<String>` | Today's date key, e.g. `'2026-05-25'`; re-emits across midnight and on app resume |
 | `isarProvider` | `FutureProvider<Isar>` | Singleton Isar instance |
 | `sharedPreferencesProvider` | `FutureProvider<SharedPreferences>` | Singleton prefs instance |
 

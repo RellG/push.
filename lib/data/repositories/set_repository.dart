@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
+import 'package:push_app/data/db/entities/profile.dart';
 import 'package:push_app/data/db/entities/pushup_set.dart';
 import 'package:push_app/data/repositories/date_key.dart';
 
@@ -21,10 +22,13 @@ class SetRepository {
     return _isar.writeTxn(() async {
       final date = localDateKey(loggedAt);
       var day = await _isar.dayLogs.where().dateEqualTo(date).findFirst();
-      day ??= DayLog()
-        ..date = date
-        ..goal = dailyGoal
-        ..totalReps = 0;
+      if (day == null) {
+        final profile = await _isar.profiles.where().findFirst();
+        day = DayLog()
+          ..date = date
+          ..goal = profile?.currentGoal ?? dailyGoal
+          ..totalReps = 0;
+      }
 
       final set = PushupSet()
         ..reps = reps

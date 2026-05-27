@@ -15,11 +15,38 @@ class PushApp extends StatelessWidget {
   }
 }
 
-class _PushMaterialApp extends ConsumerWidget {
+class _PushMaterialApp extends ConsumerStatefulWidget {
   const _PushMaterialApp();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PushMaterialApp> createState() => _PushMaterialAppState();
+}
+
+class _PushMaterialAppState extends ConsumerState<_PushMaterialApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Force the day key to re-evaluate immediately on resume so a set
+      // logged just after midnight lands in the right [DayLog] bucket.
+      ref.invalidate(todayDateProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 

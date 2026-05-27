@@ -20,8 +20,21 @@ const onboardingCompleteKey = 'onboarding_complete';
 
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
-final todayDateProvider = Provider<String>((ref) {
-  return localDateKey(ref.watch(clockProvider)());
+/// Emits the current local-day key, re-emitting whenever the clock crosses
+/// into a new day. Polls every 30s so a set logged just after midnight lands
+/// in the correct [DayLog] bucket. Consumers can also invalidate this provider
+/// directly (e.g., on `AppLifecycleState.resumed`) to refresh immediately.
+final todayDateProvider = StreamProvider<String>((ref) async* {
+  final clock = ref.watch(clockProvider);
+  var last = localDateKey(clock());
+  yield last;
+  await for (final _ in Stream<void>.periodic(const Duration(seconds: 30))) {
+    final next = localDateKey(clock());
+    if (next != last) {
+      last = next;
+      yield next;
+    }
+  }
 });
 
 final isarProvider = FutureProvider<Isar>((ref) {
@@ -99,7 +112,7 @@ final completeOnboardingProvider = Provider<CompleteOnboarding>((ref) {
 
 final todayProvider = StreamProvider<DayLog?>((ref) async* {
   final repository = await ref.watch(dayRepositoryProvider.future);
-  final date = ref.watch(todayDateProvider);
+  final date = await ref.watch(todayDateProvider.future);
   yield* repository.watchByDate(date);
 });
 
@@ -124,11 +137,14 @@ final logSetProvider = Provider<LogSet>((ref) {
     final profileRepository = await ref.read(profileRepositoryProvider.future);
     final setRepository = await ref.read(setRepositoryProvider.future);
     final profile = await profileRepository.getProfile();
+    if (profile == null) {
+      throw StateError('Cannot log a set before onboarding is complete.');
+    }
 
     await setRepository.addSet(
       reps: reps,
       loggedAt: ref.read(clockProvider)(),
-      dailyGoal: profile?.currentGoal ?? 100,
+      dailyGoal: profile.currentGoal,
       note: note,
     );
     ref

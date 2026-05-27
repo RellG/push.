@@ -25,7 +25,8 @@ class ProfileRepository {
   }) {
     return _isar.writeTxn(() async {
       final existing = await getProfile();
-      final profile = existing ?? Profile()
+      final profile = existing ?? Profile();
+      profile
         ..name = name
         ..currentGoal = currentGoal
         ..themeMode = themeMode

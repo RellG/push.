@@ -33,7 +33,15 @@ class StreakCalculator {
 
     for (final date in completedDates.skip(1)) {
       final parsed = DateTime.parse(date);
-      if (parsed.difference(previous).inDays == 1) {
+      final expectedNext = DateTime(
+        previous.year,
+        previous.month,
+        previous.day + 1,
+      );
+      final isConsecutive = parsed.year == expectedNext.year &&
+          parsed.month == expectedNext.month &&
+          parsed.day == expectedNext.day;
+      if (isConsecutive) {
         current += 1;
       } else {
         current = 1;

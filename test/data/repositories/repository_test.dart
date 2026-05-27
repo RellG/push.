@@ -55,6 +55,29 @@ void main() {
     expect(saved.createdAt, createdAt);
   });
 
+  test('re-saving applies updates to an existing profile', () async {
+    final repository = ProfileRepository(isar);
+    final createdAt = DateTime(2026, 5, 25, 9);
+
+    final first = await repository.saveProfile(
+      name: 'Rell',
+      currentGoal: 100,
+      themeMode: 'dark',
+      createdAt: createdAt,
+    );
+    final second = await repository.saveProfile(
+      name: 'Renamed',
+      currentGoal: 200,
+      themeMode: 'light',
+    );
+
+    expect(second.id, first.id);
+    expect(second.name, 'Renamed');
+    expect(second.currentGoal, 200);
+    expect(second.themeMode, 'light');
+    expect(second.createdAt, createdAt);
+  });
+
   test(
     'set repository creates a day log and keeps the day goal immutable',
     () async {
