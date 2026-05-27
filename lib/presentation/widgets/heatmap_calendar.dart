@@ -108,7 +108,7 @@ class _HeatmapCell extends StatelessWidget {
     return Semantics(
       button: true,
       label: data.day == null
-          ? data.date
+          ? '${data.date}: no pushups logged'
           : '${data.date}: ${data.day!.totalReps} pushups',
       child: InkWell(
         onTap: onTap,

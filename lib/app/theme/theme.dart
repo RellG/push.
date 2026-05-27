@@ -29,7 +29,7 @@ abstract final class PushTheme {
         onPrimary: colors.background,
         secondary: colors.textMuted,
         onSecondary: colors.background,
-        error: const Color(0xFFFF453A),
+        error: colors.error,
         onError: colors.background,
         surface: colors.surface,
         onSurface: colors.textPrimary,
@@ -91,11 +91,11 @@ abstract final class PushTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFFF453A)),
+          borderSide: BorderSide(color: colors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFFF453A)),
+          borderSide: BorderSide(color: colors.error),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -163,12 +163,6 @@ abstract final class PushTheme {
             ).copyWith(
               animationDuration: PushMotion.fast,
             ),
-      ),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
-        },
       ),
     );
   }

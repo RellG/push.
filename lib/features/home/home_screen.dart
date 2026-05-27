@@ -58,9 +58,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: RefreshIndicator(
                   onRefresh: () async {
                     ref
+                      ..invalidate(todayDateProvider)
+                      ..invalidate(allDaysProvider)
+                      ..invalidate(allSetsProvider)
                       ..invalidate(todayProvider)
-                      ..invalidate(todaySetsProvider)
-                      ..invalidate(streakProvider);
+                      ..invalidate(todaySetsProvider);
+                    await ref.read(todayProvider.future);
                   },
                   child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -145,9 +148,9 @@ class _HomeHeader extends StatelessWidget {
           ),
           child: Text(
             streak.when(
-              data: (value) => '$value day',
-              error: (error, stackTrace) => '0 day',
-              loading: () => '-- day',
+              data: (value) => '${value}d',
+              error: (error, stackTrace) => '0d',
+              loading: () => '--d',
             ),
             style: PushTypography.monoNumber(
               color: colors.textPrimary,

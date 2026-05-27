@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:push_app/app/theme/colors.dart';
+import 'package:push_app/app/theme/motion.dart';
 
 class GoalCelebrationLayer extends StatefulWidget {
   const GoalCelebrationLayer({super.key});
@@ -21,7 +22,7 @@ class GoalCelebrationLayerState extends State<GoalCelebrationLayer>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: PushMotion.celebration,
     );
   }
 

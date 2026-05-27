@@ -52,6 +52,21 @@ abstract final class PushTypography {
     );
   }
 
+  static TextStyle monoCode({
+    required Color color,
+    required double fontSize,
+    FontWeight fontWeight = FontWeight.w400,
+  }) {
+    return TextStyle(
+      color: color,
+      fontFamily: PushFonts.mono,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: 0,
+      height: 1.4,
+    );
+  }
+
   static TextStyle _sans({
     required Color color,
     required double fontSize,

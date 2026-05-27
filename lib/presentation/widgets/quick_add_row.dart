@@ -69,12 +69,9 @@ class _QuickAddRowState extends State<QuickAddRow> {
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _addCustom,
-                child: const Text('Add'),
-              ),
+            ElevatedButton(
+              onPressed: _addCustom,
+              child: const Text('Add'),
             ),
           ],
         ),

@@ -7,6 +7,7 @@ abstract final class PushMotion {
   static const Duration medium = Duration(milliseconds: 300);
   static const Duration counter = Duration(milliseconds: 400);
   static const Duration progress = Duration(milliseconds: 600);
+  static const Duration celebration = Duration(milliseconds: 1100);
 
   static const double pressedScale = 0.97;
 }

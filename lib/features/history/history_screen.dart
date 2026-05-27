@@ -51,6 +51,38 @@ class HistoryScreen extends ConsumerWidget {
     );
   }
 
+  static const _weekdayNames = <String>[
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ];
+
+  static const _monthNames = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  static String _humanizeDate(String dateKey) {
+    final parsed = DateTime.parse(dateKey);
+    final weekday = _weekdayNames[parsed.weekday - 1];
+    final month = _monthNames[parsed.month - 1];
+    return '$weekday, $month ${parsed.day}';
+  }
+
   void _showDay(BuildContext context, DayLog? day) {
     final colors = context.colors;
 
@@ -68,13 +100,14 @@ class HistoryScreen extends ConsumerWidget {
           }
 
           final ratio = day.goal <= 0 ? 0 : day.totalReps / day.goal;
+          final humanizedDate = _humanizeDate(day.date);
           return Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(day.date, style: Theme.of(context).textTheme.titleLarge),
+                Text(humanizedDate, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 16),
                 Text(
                   day.totalReps.toString(),
@@ -86,9 +119,11 @@ class HistoryScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${(ratio * 100).round()}% of ${day.goal}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: colors.textMuted),
+                  style: PushTypography.monoNumber(
+                    color: colors.textMuted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:push_app/app/router.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
@@ -57,7 +58,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Name',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: Icon(LucideIcons.user),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -78,7 +79,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                     decoration: const InputDecoration(
                       labelText: 'Daily goal',
-                      prefixIcon: Icon(Icons.track_changes),
+                      prefixIcon: Icon(LucideIcons.target),
                     ),
                     validator: (value) {
                       final goal = int.tryParse(value ?? '');
@@ -94,17 +95,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ButtonSegment(
                         value: 'dark',
                         label: Text('Dark'),
-                        icon: Icon(Icons.dark_mode_outlined),
+                        icon: Icon(LucideIcons.moon),
                       ),
                       ButtonSegment(
                         value: 'light',
                         label: Text('Light'),
-                        icon: Icon(Icons.light_mode_outlined),
+                        icon: Icon(LucideIcons.sun),
                       ),
                       ButtonSegment(
                         value: 'system',
                         label: Text('System'),
-                        icon: Icon(Icons.monitor_outlined),
+                        icon: Icon(LucideIcons.monitor),
                       ),
                     ],
                     selected: {_themeMode},
@@ -120,7 +121,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             dimension: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.arrow_forward),
+                        : const Icon(LucideIcons.arrowRight),
                     label: const Text('Continue'),
                   ),
                 ],

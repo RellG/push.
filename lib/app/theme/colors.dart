@@ -12,6 +12,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
     required this.accentStart,
     required this.accentMid,
     required this.accentEnd,
+    required this.error,
   });
 
   factory PushColorTokens.dark() {
@@ -25,6 +26,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
       accentStart: Color(0xFF0070F3),
       accentMid: Color(0xFF7928CA),
       accentEnd: Color(0xFFFF0080),
+      error: Color(0xFFFF453A),
     );
   }
 
@@ -39,6 +41,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
       accentStart: Color(0xFF0070F3),
       accentMid: Color(0xFF7928CA),
       accentEnd: Color(0xFFFF0080),
+      error: Color(0xFFFF453A),
     );
   }
 
@@ -51,6 +54,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
   final Color accentStart;
   final Color accentMid;
   final Color accentEnd;
+  final Color error;
 
   LinearGradient get accentGradient => LinearGradient(
     colors: [accentStart, accentMid, accentEnd],
@@ -67,6 +71,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
     Color? accentStart,
     Color? accentMid,
     Color? accentEnd,
+    Color? error,
   }) {
     return PushColorTokens(
       background: background ?? this.background,
@@ -78,6 +83,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
       accentStart: accentStart ?? this.accentStart,
       accentMid: accentMid ?? this.accentMid,
       accentEnd: accentEnd ?? this.accentEnd,
+      error: error ?? this.error,
     );
   }
 
@@ -97,6 +103,7 @@ class PushColorTokens extends ThemeExtension<PushColorTokens> {
       accentStart: Color.lerp(accentStart, other.accentStart, t)!,
       accentMid: Color.lerp(accentMid, other.accentMid, t)!,
       accentEnd: Color.lerp(accentEnd, other.accentEnd, t)!,
+      error: Color.lerp(error, other.error, t)!,
     );
   }
 }

@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
 import 'package:push_app/providers/app_providers.dart';
@@ -112,16 +114,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: 'Data',
                   child: OutlinedButton.icon(
                     onPressed: _isExporting ? null : _exportJson,
-                    icon: const Icon(Icons.ios_share_outlined),
+                    icon: const Icon(LucideIcons.share),
                     label: const Text('Export JSON'),
                   ),
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _seedDemoData,
-                  icon: const Icon(Icons.auto_graph_outlined),
-                  label: const Text('Seed demo data'),
-                ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _seedDemoData,
+                    icon: const Icon(LucideIcons.barChart3),
+                    label: const Text('Seed demo data'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -174,10 +178,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: SingleChildScrollView(
               child: SelectableText(
                 exportJson,
-                style: PushTypography.monoNumber(
+                style: PushTypography.monoCode(
                   color: context.colors.textPrimary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),

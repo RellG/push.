@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:push_app/app/theme/motion.dart';
 import 'package:push_app/features/history/history_screen.dart';
 import 'package:push_app/features/home/home_screen.dart';
 import 'package:push_app/features/onboarding/onboarding_screen.dart';
@@ -81,13 +82,13 @@ CustomTransitionPage<void> _fadePage({
 }) {
   return CustomTransitionPage<void>(
     key: state.pageKey,
-    transitionDuration: const Duration(milliseconds: 250),
+    transitionDuration: PushMotion.pageTransition,
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final offset = Tween<Offset>(
         begin: const Offset(0, 0.03),
         end: Offset.zero,
-      ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation);
+      ).chain(CurveTween(curve: PushMotion.defaultCurve)).animate(animation);
 
       return FadeTransition(
         opacity: animation,

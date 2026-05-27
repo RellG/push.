@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:push_app/app/router.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
@@ -44,7 +45,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                     IconButton(
                       tooltip: 'Settings',
                       onPressed: () => context.push(AppRoutes.settings),
-                      icon: const Icon(Icons.settings_outlined),
+                      icon: const Icon(LucideIcons.settings),
                     ),
                   ],
                 ),
@@ -157,13 +158,15 @@ class _StatCard extends StatelessWidget {
 class _LineChart extends StatelessWidget {
   const _LineChart({required this.points});
 
+  static const double _minHeadroom = 10;
+
   final List<ChartPoint> points;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final maxY = points.fold<double>(
-      10,
+      _minHeadroom,
       (max, point) => point.value > max ? point.value.toDouble() : max,
     );
 
