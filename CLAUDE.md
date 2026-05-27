@@ -84,6 +84,18 @@ If a Gradle build fails on a fresh machine, check those two before debugging any
 - Widget tests for `ProgressRing`, `QuickAddRow`, onboarding flow.
 - Aim 70%+ coverage on `lib/domain/` and `lib/data/`. Don't chase coverage in `lib/presentation/`.
 
-## When asked to "run the app"
+## Host split: this Windows machine is for editing, MacBook is for running
 
-The brief targets Android + iOS. Default to whichever is set up. No macOS/web desktop targets — the project isn't configured for them. If neither platform has a device/emulator ready, ask the user how they want to test before installing toolchains (emulator system images are 1-2GB each).
+This repo lives on two hosts:
+
+- **Windows (this machine):** primary development surface — editing code, running the systems reviewer agent, reading/searching the codebase, committing. **Flutter SDK is not installed** and disk space is tight (see `memory/reference_toolchain.md`). Do not try to run `flutter analyze`, `flutter test`, `flutter run`, or any emulator from here.
+- **MacBook (separate host):** the test rig. Flutter SDK + Android/iOS emulators are already set up there. The user runs `flutter analyze`, `flutter test`, and the app there.
+
+What this means for Claude on the Windows host:
+
+1. **Don't install Flutter / Dart / Android system images / AVDs.** If a task seems to require them, stop and confirm with the user.
+2. **Don't run `flutter ...` commands.** They will fail. Recommend the user run them on the MacBook instead.
+3. **Do** still write code that would pass `flutter analyze` and the test suite — the user will validate on the MacBook before pushing.
+4. **Never `git push`** from this host unless the user explicitly asks. Default workflow is: commit on Windows, user tests on MacBook, user pushes from whichever host once green.
+
+If the user asks Claude to "run the app" or "fire up an emulator" from the Windows host, surface this constraint and offer to either (a) prepare the change for them to test on the MacBook, or (b) ask whether they want to install the full Flutter toolchain on Windows after all.
