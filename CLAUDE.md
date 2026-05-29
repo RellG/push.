@@ -62,6 +62,11 @@ These are documented in `README.md` → "Current Notes":
 
 1. **`isar_flutter_libs` 3.1.0+1** is missing `namespace` (AGP 8+ requirement) and pins `compileSdk 30` (too low for transitive AndroidX deps). After any clean `flutter pub get`, patch `~/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.0+1/android/build.gradle` — set `namespace 'dev.isar.isar_flutter_libs'` and `compileSdkVersion 36`.
 2. **`flutter_local_notifications`** requires core library desugaring. `android/app/build.gradle.kts` enables `isCoreLibraryDesugaringEnabled = true` and pulls in `com.android.tools:desugar_jdk_libs`. Don't remove either.
+3. **`lucide_icons` 0.257.0** was published before Flutter made `IconData` a `final class` (Flutter 3.27+). On Flutter 3.44, `LucideIconData extends IconData` is illegal and the app/tests won't compile. Patch the pub cache once after first install:
+   - `~/.pub-cache/hosted/pub.dev/lucide_icons-0.257.0/pubspec.yaml` — change SDK to `">=3.3.0 <4.0.0"`.
+   - `~/.pub-cache/hosted/pub.dev/lucide_icons-0.257.0/lib/lucide_icons.dart` — replace all `const LucideIconData(0x...)` with `IconData(0x..., fontFamily: 'Lucide', fontPackage: 'lucide_icons')` (Python one-liner: see project scripts or re-derive from git history of this file).
+   - `~/.pub-cache/hosted/pub.dev/lucide_icons-0.257.0/lib/src/icon_data.dart` — replace with `typedef LucideIconData = IconData;`.
+   Unlike the isar patch, this one survives `flutter pub get` (pub doesn't overwrite cached Dart sources, only Gradle files on re-resolve).
 
 If a Gradle build fails on a fresh machine, check those two before debugging anything else.
 

@@ -107,7 +107,10 @@ class HistoryScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(humanizedDate, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  humanizedDate,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   day.totalReps.toString(),

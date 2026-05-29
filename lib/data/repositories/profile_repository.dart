@@ -30,8 +30,8 @@ class ProfileRepository {
         ..name = name
         ..currentGoal = currentGoal
         ..themeMode = themeMode
-        ..createdAt = existing?.createdAt ?? createdAt ?? DateTime.now();
-      profile.id = await _isar.profiles.put(profile);
+        ..createdAt = existing?.createdAt ?? createdAt ?? DateTime.now()
+        ..id = await _isar.profiles.put(profile);
 
       return profile;
     });
