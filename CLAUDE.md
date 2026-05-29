@@ -105,3 +105,14 @@ What this means for Claude on the Windows host:
 4. **Never `git push`** from this host unless the user explicitly asks. Default workflow is: commit on Windows, user tests on MacBook, user pushes from whichever host once green.
 
 If the user asks Claude to "run the app" or "fire up an emulator" from the Windows host, surface this constraint and offer to either (a) prepare the change for them to test on the MacBook, or (b) ask whether they want to install the full Flutter toolchain on Windows after all.
+
+## Post-v1 roadmap (planned, not yet in scope)
+
+The app today is intentionally **local-first and single-user**: Isar + `shared_preferences` only, no network, no auth, no account. That is the correct v1 architecture — ship it local-only. The following are **approved future directions** to implement *after* local solo testing, but they are explicitly **out of current MVP scope** — do not build them without the user re-confirming the specific feature is being started:
+
+1. **Cloud backup / restore** — survive reinstall, device loss, and OS upgrades. This is the first networked feature to add; it's the natural precursor to sync.
+2. **Cross-device sync** — same data on phone + tablet. Requires reconciling the offline-first Isar state with a remote store (conflict/merge layer is the real work, not hosting).
+3. **Accounts + social** — friends, leaderboards, challenges. Requires auth and a server-side data model.
+4. **Monetization** — likely a subscription tier; needs server-side receipt validation.
+
+**Backend tooling guidance when one of the above is greenlit:** prefer a **BaaS (Supabase or Firebase)** over a hand-rolled server (e.g. Railway) until there is genuinely custom server logic to host. A BaaS provides auth + managed DB + offline sync + a Flutter SDK out of the box, which minimizes the sync/merge work that dominates an offline-first app. **Railway + Postgres + a Dart API (dart_frog / Serverpod)** becomes the right call only once custom server logic exists — subscription webhooks, a social graph with custom queries, or server-scheduled push. Any backend is additive to (not a replacement for) the locked local stack (Riverpod/Isar/etc.).
