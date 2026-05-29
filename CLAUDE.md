@@ -94,7 +94,8 @@ If a Gradle build fails on a fresh machine, check those two before debugging any
 This repo lives on two hosts:
 
 - **Windows (this machine):** primary development surface — editing code, running the systems reviewer agent, reading/searching the codebase, committing. **Flutter SDK is not installed** and disk space is tight (see `memory/reference_toolchain.md`). Do not try to run `flutter analyze`, `flutter test`, `flutter run`, or any emulator from here.
-- **MacBook (separate host):** the test rig. Flutter SDK + Android/iOS emulators are already set up there. The user runs `flutter analyze`, `flutter test`, and the app there.
+- **MacBook (separate host):** the test rig. Flutter SDK + Android toolchain are set up there (confirmed green on **Flutter 3.44.0 / Dart 3.12.0**: debug APK builds, analyze clean, all 23 tests pass). The user runs `flutter analyze`, `flutter test`, and the app there.
+  - **iOS builds are NOT yet possible on the MacBook:** only Xcode Command Line Tools are installed (no full Xcode.app), and CocoaPods is not installed. `flutter run`/`build` for any iPhone or iOS simulator will fail until the user installs full Xcode (`sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer && sudo xcodebuild -runFirstLaunch`) and CocoaPods (`brew install cocoapods` or `sudo gem install cocoapods`). Don't propose iOS device/sim runs until those exist. iOS bundle id is `com.tktechnology.push`; signing team is not yet configured. See README → "Private iOS testing".
 
 What this means for Claude on the Windows host:
 
