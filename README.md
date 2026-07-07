@@ -1,13 +1,13 @@
 # Push.
 
-Push. is a Flutter daily pushup tracker for Android and iOS. The app focuses on one fast loop: set a daily goal, log sets throughout the day, complete the goal, and keep the streak alive.
+Push. is a Flutter daily pushup tracker for Android, iOS, and the web. The app focuses on one fast loop: set a daily goal, log sets throughout the day, complete the goal, and keep the streak alive.
 
 ## Stack
 
 - Flutter 3.x and Dart strict analysis
 - Riverpod 2.x for app state
 - go_router for navigation
-- Isar for local persistence
+- sembast for local persistence (file-backed on mobile, IndexedDB on web)
 - shared_preferences for onboarding/theme flags
 - fl_chart for stats charts
 - flutter_animate and AnimationController-based motion
@@ -17,24 +17,22 @@ Push. is a Flutter daily pushup tracker for Android and iOS. The app focuses on 
 
 ```bash
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+python3 scripts/patch_lucide_icons.py   # required once per clean machine, see below
 flutter analyze
 flutter test
 flutter run
 ```
 
-The generated Isar files are committed. Re-run `build_runner` after changing any `@collection` model in `lib/data/db/entities/`.
-
 ## Architecture
 
 - `lib/app/`: app shell, router, theme, motion, typography, color tokens
-- `lib/data/`: Isar collections, database opener, repositories
+- `lib/data/`: sembast entities, database opener, repositories
 - `lib/domain/`: stats and streak calculation services
 - `lib/providers/`: Riverpod providers and app actions
 - `lib/features/`: onboarding, home, history, stats, settings screens
 - `lib/presentation/widgets/`: shared UI widgets such as the progress ring and heatmap
 
-Widgets do not touch Isar directly. Screens call providers, providers call repositories, and repositories own database writes.
+Widgets do not touch the database directly. Screens call providers, providers call repositories, and repositories own database writes.
 
 ## Design
 
@@ -45,6 +43,12 @@ Push. uses a dark-first Vercel/Geist treatment: black background, bordered surfa
 Open Settings and tap `Seed demo data` to populate recent day logs for screenshots. The seeder skips dates that already have data.
 
 ## Build Commands
+
+Web (this is what Render deploys):
+
+```bash
+flutter build web --release   # output in build/web
+```
 
 Android debug APK:
 
@@ -72,46 +76,31 @@ open ios/Runner.xcworkspace
 
 Then choose `Any iOS Device`, archive, and upload through Organizer.
 
-## Screenshots
+## Web deployment (Render)
 
-Use seeded demo data, then capture:
+The repo ships `render.yaml`, a Render Blueprint that builds the app as a free **static site**:
 
-- Home in dark theme
-- Home in light theme
-- History heatmap
-- Stats dashboard
-- Onboarding
+- `scripts/render_build.sh` downloads the pinned Flutter SDK, runs `pub get`, applies the lucide_icons patch, and runs `flutter build web --release`.
+- `build/web` is published with an SPA rewrite (`/* → /index.html`).
+
+To deploy: Render dashboard → **New → Blueprint** → connect this GitHub repo. Pushes to the default branch auto-deploy. There are no runtime secrets — the app is fully local-first (sembast in the browser's IndexedDB).
+
+The web app is installable as a PWA on iPhone (Safari → Share → Add to Home Screen), Android (Chrome → Install app), and desktop.
 
 ## Current Notes
 
-Verified building and green on the MacBook test rig: **Flutter 3.44.0 / Dart 3.12.0** — debug APK builds, `flutter analyze` clean, all 23 tests pass.
+Verified green on Linux with **Flutter 3.44.5 / Dart 3.12.2**: `flutter analyze` clean, all 23 tests pass, release web build succeeds.
 
 ### lucide_icons patch (required on every clean machine)
 
-`lucide_icons 0.257.0` is used by onboarding, stats, and settings, but it was published before Flutter 3.27+ made `IconData` a `final class`, so its `class LucideIconData extends IconData` no longer compiles. After a fresh install, patch the pub cache:
+`lucide_icons 0.257.0` was published before Flutter 3.27+ made `IconData` a `final class`, so its `class LucideIconData extends IconData` no longer compiles. After a fresh install run:
 
-- `~/.pub-cache/hosted/pub.dev/lucide_icons-0.257.0/pubspec.yaml` — set the `sdk` constraint to `">=3.3.0 <4.0.0"`.
-- `~/.pub-cache/hosted/pub.dev/lucide_icons-0.257.0/lib/lucide_icons.dart` — replace every `const LucideIconData(0x….)` with `IconData(0x…., fontFamily: 'Lucide', fontPackage: 'lucide_icons')`.
-- `~/.pub-cache/hosted/pub.dev/lucide_icons-0.257.0/lib/src/icon_data.dart` — replace its body with `typedef LucideIconData = IconData;`.
-
-Unlike the isar Gradle patch below, this one survives `flutter pub get` (pub doesn't overwrite cached Dart sources). It only needs re-applying after `dart pub cache repair` / `dart pub cache clean`.
-
-### Android build: isar_flutter_libs patch
-
-`isar_flutter_libs 3.1.0+1` was published before AGP 8 made `namespace` mandatory and before transitive AndroidX deps required `compileSdk 34+`. After a fresh `flutter pub get`, patch `~/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.0+1/android/build.gradle` so the `android { ... }` block reads:
-
-```gradle
-android {
-    namespace 'dev.isar.isar_flutter_libs'
-    compileSdkVersion 36
-
-    defaultConfig {
-        minSdkVersion 21
-    }
-}
+```bash
+flutter pub get
+python3 scripts/patch_lucide_icons.py
 ```
 
-Until the Isar maintainers ship a fix (or we vendor a local fork via `dependency_overrides`), this manual edit is required on every clean machine.
+The script patches the pub cache in place (SDK constraint, icon constants, `LucideIconData` typedef) and is safe to re-run. The patch survives `flutter pub get`; it only needs re-applying after `dart pub cache repair` / `dart pub cache clean`. The Render build script runs it automatically.
 
 ### Android build: core library desugaring
 
@@ -153,4 +142,4 @@ Best for installing wirelessly, lasting 90 days per build, and adding other test
 3. Upload to App Store Connect via Xcode Organizer or `xcrun altool`/Transporter.
 4. Distribute through **TestFlight**: yourself + up to 100 internal testers (no review) or up to 10,000 external testers (light review). Testers install the TestFlight app and get builds over the air.
 
-(For Android private testing in the meantime: `flutter build apk --release` and sideload the APK, or use Google Play's internal-testing track.)
+(For Android private testing in the meantime: `flutter build apk --release` and sideload the APK, or use Google Play's internal-testing track. In the meantime, iPhone users can use the deployed web app as a PWA.)

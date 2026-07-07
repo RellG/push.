@@ -1,31 +1,24 @@
-import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:push_app/data/db/entities/day_log.dart';
-import 'package:push_app/data/db/entities/profile.dart';
-import 'package:push_app/data/db/entities/pushup_set.dart';
+import 'package:push_app/data/db/database_factory_io.dart'
+    if (dart.library.js_interop) 'package:push_app/data/db/database_factory_web.dart';
+import 'package:sembast/sembast.dart';
 
-const pushSchemas = <CollectionSchema<dynamic>>[
-  PushupSetSchema,
-  DayLogSchema,
-  ProfileSchema,
-];
+const defaultDatabaseName = 'push';
 
-Future<Isar> openPushDatabase({
-  String name = Isar.defaultName,
+final StoreRef<int, Map<String, Object?>> dayLogStore =
+    intMapStoreFactory.store('dayLogs');
+final StoreRef<int, Map<String, Object?>> profileStore =
+    intMapStoreFactory.store('profiles');
+final StoreRef<int, Map<String, Object?>> pushupSetStore =
+    intMapStoreFactory.store('pushupSets');
+
+final Map<String, Future<Database>> _instances = <String, Future<Database>>{};
+
+Future<Database> openPushDatabase({
+  String name = defaultDatabaseName,
   String? directory,
-}) async {
-  final existing = Isar.getInstance(name);
-  if (existing != null) {
-    return existing;
-  }
-
-  final databaseDirectory =
-      directory ?? (await getApplicationDocumentsDirectory()).path;
-
-  return Isar.open(
-    pushSchemas,
-    directory: databaseDirectory,
-    name: name,
-    inspector: false,
+}) {
+  return _instances.putIfAbsent(
+    name,
+    () => openPlatformDatabase(name, directory),
   );
 }

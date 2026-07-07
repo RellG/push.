@@ -1,38 +1,52 @@
-import 'package:isar/isar.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
+import 'package:push_app/data/db/push_database.dart';
+import 'package:sembast/sembast.dart';
 
 class DayRepository {
-  const DayRepository(this._isar);
+  const DayRepository(this._db);
 
-  final Isar _isar;
+  final Database _db;
 
-  Future<DayLog?> findByDate(String date) {
-    return _isar.dayLogs.getByDate(date);
+  Future<DayLog?> findByDate(String date) async {
+    final snapshot = await dayLogStore.findFirst(
+      _db,
+      finder: Finder(filter: Filter.equals('date', date)),
+    );
+
+    return snapshot == null
+        ? null
+        : DayLog.fromMap(snapshot.key, snapshot.value);
   }
 
   Stream<DayLog?> watchByDate(String date) {
-    return _isar.dayLogs
-        .filter()
-        .dateEqualTo(date)
-        .watch(fireImmediately: true)
-        .map((logs) => logs.firstOrNull);
+    return dayLogStore
+        .query(finder: Finder(filter: Filter.equals('date', date)))
+        .onSnapshots(_db)
+        .map(
+          (snapshots) => snapshots.isEmpty
+              ? null
+              : DayLog.fromMap(snapshots.first.key, snapshots.first.value),
+        );
   }
 
   Future<DayLog> getOrCreate({
     required String date,
     required int goal,
-  }) async {
-    final existing = await findByDate(date);
-    if (existing != null) {
-      return existing;
-    }
+  }) {
+    return _db.transaction((txn) async {
+      final existing = await dayLogStore.findFirst(
+        txn,
+        finder: Finder(filter: Filter.equals('date', date)),
+      );
+      if (existing != null) {
+        return DayLog.fromMap(existing.key, existing.value);
+      }
 
-    return _isar.writeTxn(() async {
       final day = DayLog()
         ..date = date
         ..goal = goal
         ..totalReps = 0;
-      day.id = await _isar.dayLogs.put(day);
+      day.id = await dayLogStore.add(txn, day.toMap());
 
       return day;
     });
@@ -41,11 +55,21 @@ class DayRepository {
   Future<List<DayLog>> findRange({
     required String startDate,
     required String endDate,
-  }) {
-    return _isar.dayLogs
-        .filter()
-        .dateBetween(startDate, endDate)
-        .sortByDate()
-        .findAll();
+  }) async {
+    final snapshots = await dayLogStore.find(
+      _db,
+      finder: Finder(
+        filter: Filter.and([
+          Filter.greaterThanOrEquals('date', startDate),
+          Filter.lessThanOrEquals('date', endDate),
+        ]),
+        sortOrders: [SortOrder('date')],
+      ),
+    );
+
+    return [
+      for (final snapshot in snapshots)
+        DayLog.fromMap(snapshot.key, snapshot.value),
+    ];
   }
 }

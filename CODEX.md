@@ -20,10 +20,10 @@ Complete technical reference for the Push. Flutter app. Read this before writing
 
 ## What It Does
 
-Push. is a daily pushup tracker for Android and iOS. The user sets a daily rep goal, logs sets throughout the day, and the day is marked complete when the goal is hit. Streaks reward consecutive completed days. The UX is fast, frictionless, and satisfying — Vercel/Geist aesthetic all the way down.
+Push. is a daily pushup tracker for Android, iOS, and the web. The user sets a daily rep goal, logs sets throughout the day, and the day is marked complete when the goal is hit. Streaks reward consecutive completed days. The UX is fast, frictionless, and satisfying — Vercel/Geist aesthetic all the way down.
 
 **Core flows:**
-1. First launch → onboarding (name + goal + theme) → stored in Isar + SharedPreferences → never shown again
+1. First launch → onboarding (name + goal + theme) → stored in sembast + SharedPreferences → never shown again
 2. Home → animated progress ring, quick-add buttons (+5/+10/+20 + custom), today's sets list, streak badge
 3. Goal hit → gradient sweep celebration + haptic + `DayLog.completedAt` stamped
 4. History → GitHub-style heatmap of last 365 days, tap a cell to see day breakdown
@@ -40,7 +40,7 @@ Push. is a daily pushup tracker for Android and iOS. The user sets a daily rep g
 | Language | Dart strict mode |
 | State management | `flutter_riverpod ^2.6.1` |
 | Navigation | `go_router ^17.2.3` |
-| Local database | `isar ^3.1.0+1` + `isar_flutter_libs` |
+| Local database | `sembast ^3.8.5` (file on mobile) + `sembast_web ^2.4.2` (IndexedDB on web) |
 | Preferences | `shared_preferences ^2.5.5` |
 | Charts | `fl_chart ^1.2.0` |
 | Animations | `flutter_animate ^4.5.2` + `AnimationController` |
@@ -48,7 +48,6 @@ Push. is a daily pushup tracker for Android and iOS. The user sets a daily rep g
 | Icons | `lucide_icons ^0.257.0` |
 | Fonts | Geist Sans + Geist Mono (self-hosted in `assets/fonts/`) |
 | Lint | `very_good_analysis ^10.2.0` |
-| Code generation | `isar_generator ^3.1.0+1` + `build_runner ^2.4.13` |
 
 **Hard rule:** do not introduce alternative packages. If a package seems wrong, raise it before changing.
 
@@ -69,14 +68,13 @@ lib/
 │       └── theme.dart                # PushTheme.dark() / PushTheme.light()
 ├── data/
 │   ├── db/
-│   │   ├── push_database.dart        # openPushDatabase(), pushSchemas list
+│   │   ├── push_database.dart        # openPushDatabase(), store refs
+│   │   ├── database_factory_io.dart  # file-backed sembast (mobile/desktop)
+│   │   ├── database_factory_web.dart # IndexedDB sembast (web)
 │   │   └── entities/
-│   │       ├── day_log.dart          # @collection DayLog
-│   │       ├── day_log.g.dart        # generated
-│   │       ├── profile.dart          # @collection Profile
-│   │       ├── profile.g.dart        # generated
-│   │       ├── pushup_set.dart       # @collection PushupSet
-│   │       └── pushup_set.g.dart     # generated
+│   │       ├── day_log.dart          # DayLog + toMap/fromMap
+│   │       ├── profile.dart          # Profile + toMap/fromMap
+│   │       └── pushup_set.dart       # PushupSet + toMap/fromMap
 │   └── repositories/
 │       ├── date_key.dart             # localDateKey(DateTime) → 'yyyy-MM-dd' (local tz)
 │       ├── day_repository.dart       # DayRepository — find, watch, getOrCreate, findRange
@@ -201,7 +199,7 @@ All providers live in `lib/providers/app_providers.dart`.
 |---|---|---|
 | `clockProvider` | `Provider<DateTime Function()>` | Injectable clock — always use instead of `DateTime.now()` directly |
 | `todayDateProvider` | `StreamProvider<String>` | Today's date key, e.g. `'2026-05-25'`; re-emits across midnight and on app resume |
-| `isarProvider` | `FutureProvider<Isar>` | Singleton Isar instance |
+| `databaseProvider` | `FutureProvider<Database>` | Singleton sembast database |
 | `sharedPreferencesProvider` | `FutureProvider<SharedPreferences>` | Singleton prefs instance |
 
 ### Repositories
@@ -294,14 +292,14 @@ Walks backwards from today. If today is not complete, starts from yesterday (str
 Sorts the set of completed date strings, then counts the longest run of consecutive days (where consecutive means `difference.inDays == 1`).
 
 ### `SetRepository.addSet` — atomic write
-Single `isar.writeTxn` that:
+Single sembast `transaction` that:
 1. Gets or creates today's `DayLog` with the current goal
 2. Writes the `PushupSet`
 3. Updates `DayLog.totalReps` and `setIds`
 4. Stamps `DayLog.completedAt` on the set that first crosses the goal (never overwrites if already stamped)
 
 ### `SetRepository.deleteSet` — atomic write
-Single `isar.writeTxn` that:
+Single sembast `transaction` that:
 1. Reads the set to find its date
 2. Decrements `DayLog.totalReps`, removes from `setIds`
 3. Clears `DayLog.completedAt` if the new total falls below goal
@@ -372,7 +370,7 @@ Tests live in `test/` mirroring the `lib/` structure.
 | `test/presentation/widgets/progress_ring_test.dart` | ProgressRing widget |
 | `test/presentation/widgets/quick_add_row_test.dart` | QuickAddRow widget |
 
-Repository tests use a real Isar instance in a temp directory (downloaded with `Isar.initializeIsarCore(download: true)` in `setUpAll`). Never mock Isar.
+Repository tests use a real in-memory sembast database (`newDatabaseFactoryMemory()` from `sembast/sembast_memory.dart`). Never mock the database.
 
 Run before every commit:
 ```bash
@@ -396,15 +394,15 @@ flutter build appbundle --release   # for Play Store
 flutter build ios --release
 # then open ios/Runner.xcworkspace in Xcode to archive
 
-# Code generation (after editing Isar entities)
-dart run build_runner build --delete-conflicting-outputs
+# Web (deployed to Render as a static site via render.yaml)
+flutter build web --release        # output in build/web
 ```
 
 ---
 
 ## Conventions
 
-- **Architecture boundary:** widgets → providers → repositories → Isar. Widgets never import `isar` or call `isar.*` directly.
+- **Architecture boundary:** widgets → providers → repositories → sembast. Widgets never import `sembast` or touch the database directly.
 - **Date keys:** always use `localDateKey(dateTime)` from `lib/data/repositories/date_key.dart`. Never format dates inline.
 - **Clock injection:** always read time via `ref.read(clockProvider)()`. Never call `DateTime.now()` in feature code — this makes the clock testable.
 - **Theming:** always use `context.colors` (`PushColorTokens`) for color. Never hardcode color literals outside `colors.dart`.

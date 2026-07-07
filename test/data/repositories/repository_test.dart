@@ -1,39 +1,22 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:isar/isar.dart';
-import 'package:push_app/data/db/push_database.dart';
 import 'package:push_app/data/repositories/day_repository.dart';
 import 'package:push_app/data/repositories/profile_repository.dart';
 import 'package:push_app/data/repositories/set_repository.dart';
+import 'package:sembast/sembast_memory.dart';
 
 void main() {
-  late Directory directory;
-  late Isar isar;
-
-  setUpAll(() async {
-    await Isar.initializeIsarCore(download: true);
-  });
+  late Database database;
 
   setUp(() async {
-    directory = await Directory.systemTemp.createTemp('push_isar_test_');
-    isar = await Isar.open(
-      pushSchemas,
-      directory: directory.path,
-      name: 'test_${DateTime.now().microsecondsSinceEpoch}',
-      inspector: false,
-    );
+    database = await newDatabaseFactoryMemory().openDatabase('push_test');
   });
 
   tearDown(() async {
-    await isar.close(deleteFromDisk: true);
-    if (directory.existsSync()) {
-      directory.deleteSync(recursive: true);
-    }
+    await database.close();
   });
 
   test('profile repository saves and updates the single profile', () async {
-    final repository = ProfileRepository(isar);
+    final repository = ProfileRepository(database);
     final createdAt = DateTime(2026, 5, 25, 9);
 
     final profile = await repository.saveProfile(
@@ -56,7 +39,7 @@ void main() {
   });
 
   test('re-saving applies updates to an existing profile', () async {
-    final repository = ProfileRepository(isar);
+    final repository = ProfileRepository(database);
     final createdAt = DateTime(2026, 5, 25, 9);
 
     final first = await repository.saveProfile(
@@ -81,8 +64,8 @@ void main() {
   test(
     'set repository creates a day log and keeps the day goal immutable',
     () async {
-      final setRepository = SetRepository(isar);
-      final dayRepository = DayRepository(isar);
+      final setRepository = SetRepository(database);
+      final dayRepository = DayRepository(database);
       final loggedAt = DateTime(2026, 5, 25, 7, 30);
 
       final firstSet = await setRepository.addSet(
@@ -109,8 +92,8 @@ void main() {
   );
 
   test('deleting a set removes it from the day total and set list', () async {
-    final setRepository = SetRepository(isar);
-    final dayRepository = DayRepository(isar);
+    final setRepository = SetRepository(database);
+    final dayRepository = DayRepository(database);
     final loggedAt = DateTime(2026, 5, 25, 7, 30);
 
     final set = await setRepository.addSet(
@@ -130,8 +113,8 @@ void main() {
   });
 
   test('goal completion is stamped when total reaches the day goal', () async {
-    final setRepository = SetRepository(isar);
-    final dayRepository = DayRepository(isar);
+    final setRepository = SetRepository(database);
+    final dayRepository = DayRepository(database);
     final loggedAt = DateTime(2026, 5, 25, 7, 30);
 
     await setRepository.addSet(

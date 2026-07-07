@@ -32,7 +32,17 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
-libisar.*
+
+# Secrets and private notes — this is a public repo, never commit these
+.env
+.env.*
+*.pem
+*.key
+*.keystore
+*.jks
+key.properties
+*.private.md
+/private/
 
 # Symbolication related
 app.*.symbols

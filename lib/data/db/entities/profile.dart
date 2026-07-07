@@ -1,10 +1,16 @@
-import 'package:isar/isar.dart';
-
-part 'profile.g.dart';
-
-@collection
 class Profile {
-  Id id = Isar.autoIncrement;
+  Profile();
+
+  factory Profile.fromMap(int id, Map<String, Object?> map) {
+    return Profile()
+      ..id = id
+      ..name = map['name']! as String
+      ..currentGoal = map['currentGoal']! as int
+      ..themeMode = map['themeMode']! as String
+      ..createdAt = DateTime.parse(map['createdAt']! as String);
+  }
+
+  int id = 0;
 
   late String name;
 
@@ -13,4 +19,13 @@ class Profile {
   late String themeMode;
 
   late DateTime createdAt;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      'name': name,
+      'currentGoal': currentGoal,
+      'themeMode': themeMode,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
 }

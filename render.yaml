@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: push
+    runtime: static
+    buildCommand: bash scripts/render_build.sh
+    staticPublishPath: build/web
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

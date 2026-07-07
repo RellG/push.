@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
 import 'package:push_app/data/db/entities/profile.dart';
 import 'package:push_app/data/db/entities/pushup_set.dart';
@@ -14,6 +13,7 @@ import 'package:push_app/data/repositories/set_repository.dart';
 import 'package:push_app/domain/models/push_stats.dart';
 import 'package:push_app/domain/services/stats_calculator.dart';
 import 'package:push_app/domain/services/streak_calculator.dart';
+import 'package:sembast/sembast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const onboardingCompleteKey = 'onboarding_complete';
@@ -37,7 +37,7 @@ final todayDateProvider = StreamProvider<String>((ref) async* {
   }
 });
 
-final isarProvider = FutureProvider<Isar>((ref) {
+final databaseProvider = FutureProvider<Database>((ref) {
   return openPushDatabase();
 });
 
@@ -53,18 +53,18 @@ final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
 final profileRepositoryProvider = FutureProvider<ProfileRepository>((
   ref,
 ) async {
-  final isar = await ref.watch(isarProvider.future);
-  return ProfileRepository(isar);
+  final database = await ref.watch(databaseProvider.future);
+  return ProfileRepository(database);
 });
 
 final dayRepositoryProvider = FutureProvider<DayRepository>((ref) async {
-  final isar = await ref.watch(isarProvider.future);
-  return DayRepository(isar);
+  final database = await ref.watch(databaseProvider.future);
+  return DayRepository(database);
 });
 
 final setRepositoryProvider = FutureProvider<SetRepository>((ref) async {
-  final isar = await ref.watch(isarProvider.future);
-  return SetRepository(isar);
+  final database = await ref.watch(databaseProvider.future);
+  return SetRepository(database);
 });
 
 final profileProvider = StreamProvider<Profile?>((ref) async* {
@@ -157,10 +157,25 @@ final logSetProvider = Provider<LogSet>((ref) {
 
 final exportJsonProvider = Provider<Future<String> Function()>((ref) {
   return () async {
-    final isar = await ref.read(isarProvider.future);
-    final profile = await isar.profiles.where().findFirst();
-    final days = await isar.dayLogs.where().sortByDate().findAll();
-    final sets = await isar.pushupSets.where().sortByLoggedAt().findAll();
+    final database = await ref.read(databaseProvider.future);
+    final profileSnapshot = await profileStore.findFirst(database);
+    final profile = profileSnapshot == null
+        ? null
+        : Profile.fromMap(profileSnapshot.key, profileSnapshot.value);
+    final days = [
+      for (final snapshot in await dayLogStore.find(
+        database,
+        finder: Finder(sortOrders: [SortOrder('date')]),
+      ))
+        DayLog.fromMap(snapshot.key, snapshot.value),
+    ];
+    final sets = [
+      for (final snapshot in await pushupSetStore.find(
+        database,
+        finder: Finder(sortOrders: [SortOrder('loggedAt')]),
+      ))
+        PushupSet.fromMap(snapshot.key, snapshot.value),
+    ];
 
     return const JsonEncoder.withIndent('  ').convert({
       'profile': profile == null
@@ -196,25 +211,28 @@ final exportJsonProvider = Provider<Future<String> Function()>((ref) {
 
 final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
   return () async {
-    final isar = await ref.read(isarProvider.future);
+    final database = await ref.read(databaseProvider.future);
     final now = ref.read(clockProvider)();
     final today = DateTime(now.year, now.month, now.day);
 
-    await isar.writeTxn(() async {
-      final existingProfile = await isar.profiles.where().findFirst();
+    await database.transaction((txn) async {
+      final existingProfile = await profileStore.findFirst(txn);
       if (existingProfile == null) {
         final profile = Profile()
           ..name = 'Demo'
           ..currentGoal = 100
           ..themeMode = 'dark'
           ..createdAt = now;
-        await isar.profiles.put(profile);
+        await profileStore.add(txn, profile.toMap());
       }
 
       for (var offset = 0; offset < 90; offset += 1) {
         final date = today.subtract(Duration(days: offset));
         final key = localDateKey(date);
-        final existingDay = await isar.dayLogs.getByDate(key);
+        final existingDay = await dayLogStore.findFirst(
+          txn,
+          finder: Finder(filter: Filter.equals('date', key)),
+        );
         if (existingDay != null) {
           continue;
         }
@@ -225,7 +243,7 @@ final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
           final set = PushupSet()
             ..reps = reps
             ..loggedAt = DateTime(date.year, date.month, date.day, 12);
-          set.id = await isar.pushupSets.put(set);
+          set.id = await pushupSetStore.add(txn, set.toMap());
           setIds.add(set.id);
         }
 
@@ -237,7 +255,7 @@ final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
           ..completedAt = reps >= 100
               ? DateTime(date.year, date.month, date.day, 12)
               : null;
-        await isar.dayLogs.putByDate(day);
+        await dayLogStore.add(txn, day.toMap());
       }
     });
 
@@ -251,13 +269,23 @@ final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
 });
 
 final allDaysProvider = StreamProvider<List<DayLog>>((ref) async* {
-  final isar = await ref.watch(isarProvider.future);
-  yield* isar.dayLogs.where().watch(fireImmediately: true);
+  final database = await ref.watch(databaseProvider.future);
+  yield* dayLogStore.query().onSnapshots(database).map(
+        (snapshots) => [
+          for (final snapshot in snapshots)
+            DayLog.fromMap(snapshot.key, snapshot.value),
+        ],
+      );
 });
 
 final allSetsProvider = StreamProvider<List<PushupSet>>((ref) async* {
-  final isar = await ref.watch(isarProvider.future);
-  yield* isar.pushupSets.where().watch(fireImmediately: true);
+  final database = await ref.watch(databaseProvider.future);
+  yield* pushupSetStore.query().onSnapshots(database).map(
+        (snapshots) => [
+          for (final snapshot in snapshots)
+            PushupSet.fromMap(snapshot.key, snapshot.value),
+        ],
+      );
 });
 
 final streakCalculatorProvider = Provider<StreakCalculator>((ref) {
