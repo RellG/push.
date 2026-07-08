@@ -91,13 +91,24 @@ What this means for Claude on the Windows host:
 
 If the user asks Claude to "run the app" or "fire up an emulator" from the Windows host, surface this constraint and offer to either (a) prepare the change for them to test on the MacBook, or (b) ask whether they want to install the full Flutter toolchain on Windows after all.
 
-## Post-v1 roadmap (planned, not yet in scope)
+## Production state (as of 2026-07-08)
 
-The app today is intentionally **local-first and single-user**: Isar + `shared_preferences` only, no network, no auth, no account. That is the correct v1 architecture — ship it local-only. The following are **approved future directions** to implement *after* local solo testing, but they are explicitly **out of current MVP scope** — do not build them without the user re-confirming the specific feature is being started:
+The app is **live** at https://push-sm51.onrender.com (Render static site, auto-deploys on push to `main`). Backend is Firebase project **`push-d9e0b`** (owned by the user's Google account):
 
-1. **Cloud backup / restore** — survive reinstall, device loss, and OS upgrades. This is the first networked feature to add; it's the natural precursor to sync.
-2. **Cross-device sync** — same data on phone + tablet. Requires reconciling the offline-first Isar state with a remote store (conflict/merge layer is the real work, not hosting).
-3. **Accounts + social** — friends, leaderboards, challenges. Requires auth and a server-side data model.
-4. **Monetization** — likely a subscription tier; needs server-side receipt validation.
+- **Anonymous auth** on first launch (zero-friction by design — the user explicitly does not want visitors to need an email) with **optional Google linking** in Settings → Profile (`linkWithPopup` on web, `linkWithProvider` on native; same uid, data preserved).
+- **Firestore** `users/{uid}` tree with offline persistence; `firestore.rules` (deploy with `~/.npm-global/bin/firebase deploy --only firestore:rules`) restricts each user to their own data.
+- **Admin/monitoring** = Firebase console (Authentication tab for users, Firestore tab for their data). This is how the user watches friends' pushup counts — don't build a custom admin UI without being asked.
+- `push-sm51.onrender.com` must stay in Firebase Auth **authorized domains** or Google sign-in breaks with "The requested action is invalid".
+- Firebase client keys in the repo are **public by design**; never treat them as leaked secrets. Real secrets still never go in the repo.
+- Avoid Firestore queries that combine a `where` filter with `orderBy` on another field — they demand composite indexes and crash in production (`failed-precondition`). Filter server-side, sort small result sets client-side.
+- PWA icons (`web/icons/`, white pushup figure on black) are the approved brand mark; regenerate with PIL if needed and reuse for native launcher icons when mobile builds happen.
 
-**Backend tooling guidance when one of the above is greenlit:** prefer a **BaaS (Supabase or Firebase)** over a hand-rolled server (e.g. Railway) until there is genuinely custom server logic to host. A BaaS provides auth + managed DB + offline sync + a Flutter SDK out of the box, which minimizes the sync/merge work that dominates an offline-first app. **Railway + Postgres + a Dart API (dart_frog / Serverpod)** becomes the right call only once custom server logic exists — subscription webhooks, a social graph with custom queries, or server-scheduled push. Any backend is additive to (not a replacement for) the locked local stack (Riverpod/Isar/etc.).
+## Post-v1 roadmap (not yet in scope)
+
+Done from the original roadmap: cloud storage, accounts (anonymous + Google linking), cross-device data retrieval. Still **out of scope without the user re-confirming**:
+
+1. **Social** — friends, leaderboards, challenges between buddies (the likely next feature given the user shares the app with friends).
+2. **Native store releases** — Android APK/Play and iOS TestFlight (blocked on Xcode install; see Hosts). Add SHA-1 fingerprints to Firebase before Android Google sign-in.
+3. **Monetization** — subscription tier; needs server-side receipt validation.
+
+Known improvement backlog the user has already seen (pick up when asked): link-Google nudge banner for anonymous users, offline first-launch screen, new-version reload toast, cap stats reads at last 365 days, restrict the web API key to known domains, custom domain.
