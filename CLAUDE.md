@@ -12,19 +12,19 @@ If a requirement is ambiguous, ask before guessing. A wrong assumption costs mor
 
 ## What this app is
 
-**Push.** — a Flutter daily pushup tracker shipping to Android, iOS, and the web (Render static site). Single codebase, dark-first Vercel/Geist aesthetic, Riverpod for state, sembast for persistence (file on mobile, IndexedDB on web). The brand name is `Push.` *with the period* — never drop it.
+**Push.** — a Flutter daily pushup tracker shipping to Android, iOS, and the web (Render static site). Single codebase, dark-first Vercel/Geist aesthetic, Riverpod for state, Firebase (anonymous auth + Firestore with offline persistence) for data. The brand name is `Push.` *with the period* — never drop it.
 
 ## Stack lock-in (non-negotiable)
 
-Flutter • Dart strict • Riverpod 2.x • go_router • sembast (+ sembast_web) • fl_chart • flutter_animate • lucide_icons • very_good_analysis.
+Flutter • Dart strict • Riverpod 2.x • go_router • Firebase (firebase_auth anonymous + cloud_firestore) • fl_chart • flutter_animate • lucide_icons • very_good_analysis.
 
-(History note: v1 used Isar, but Isar 3.x has no web support and the project is dormant, so 2026-07 migrated persistence to sembast with the user's approval to unblock the web app.)
+(History: v1 used Isar → no web support → migrated to sembast 2026-07 → migrated to Firebase/Firestore days later, with the user's approval, to get accounts-less per-user cloud storage and an admin view. sembast remains only to migrate pre-Firebase local data — see `lib/data/firestore/legacy_migration.dart`.)
 
 Do not introduce alternative packages (no Provider, no Cupertino widgets, no Material 3 purple). If the stack seems wrong, raise it before changing.
 
 ## Architecture boundary
 
-**Widgets → Providers → Repositories → sembast.** Widgets never import `sembast` or touch the database directly. Everything goes through a Riverpod provider that depends on a repository.
+**Widgets → Providers → Repositories → Firestore.** Widgets never import `cloud_firestore` or touch the database directly. Everything goes through a Riverpod provider that depends on a repository. Users sign in anonymously (`signedInUserProvider`); all data lives under `users/{uid}` and is guarded by `firestore.rules`.
 
 ## Mandatory conventions
 
@@ -69,7 +69,7 @@ Conventional commits only: `feat:` / `fix:` / `chore:` / `refactor:` / `test:` /
 ## Testing expectations
 
 - Unit tests for everything in `lib/domain/services/` — especially `StreakCalculator` (midnight, timezone edges, missed days) and `StatsCalculator`.
-- Repository tests use a real in-memory sembast database (see `test/data/repositories/repository_test.dart`). Never mock the database.
+- Repository tests use `FakeFirebaseFirestore` from `fake_cloud_firestore` (see `test/data/repositories/repository_test.dart`). Never mock the database by hand.
 - Widget tests for `ProgressRing`, `QuickAddRow`, onboarding flow.
 - Aim 70%+ coverage on `lib/domain/` and `lib/data/`. Don't chase coverage in `lib/presentation/`.
 

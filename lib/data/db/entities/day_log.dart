@@ -1,7 +1,7 @@
 class DayLog {
   DayLog();
 
-  factory DayLog.fromMap(int id, Map<String, Object?> map) {
+  factory DayLog.fromMap(String id, Map<String, Object?> map) {
     final completedAt = map['completedAt'] as String?;
 
     return DayLog()
@@ -9,11 +9,11 @@ class DayLog {
       ..date = map['date']! as String
       ..goal = map['goal']! as int
       ..totalReps = map['totalReps']! as int
-      ..completedAt = completedAt == null ? null : DateTime.parse(completedAt)
-      ..setIds = (map['setIds']! as List<Object?>).cast<int>().toList();
+      ..completedAt = completedAt == null ? null : DateTime.parse(completedAt);
   }
 
-  int id = 0;
+  /// Firestore document id — the same `yyyy-MM-dd` key as [date].
+  String id = '';
 
   late String date;
 
@@ -23,15 +23,12 @@ class DayLog {
 
   DateTime? completedAt;
 
-  List<int> setIds = <int>[];
-
   Map<String, Object?> toMap() {
     return <String, Object?>{
       'date': date,
       'goal': goal,
       'totalReps': totalReps,
       'completedAt': completedAt?.toIso8601String(),
-      'setIds': setIds,
     };
   }
 }

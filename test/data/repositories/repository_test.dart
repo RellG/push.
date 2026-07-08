@@ -1,22 +1,19 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:push_app/data/firestore/user_firestore.dart';
 import 'package:push_app/data/repositories/day_repository.dart';
 import 'package:push_app/data/repositories/profile_repository.dart';
 import 'package:push_app/data/repositories/set_repository.dart';
-import 'package:sembast/sembast_memory.dart';
 
 void main() {
-  late Database database;
+  late UserFirestore store;
 
-  setUp(() async {
-    database = await newDatabaseFactoryMemory().openDatabase('push_test');
-  });
-
-  tearDown(() async {
-    await database.close();
+  setUp(() {
+    store = UserFirestore(FakeFirebaseFirestore(), 'test-user');
   });
 
   test('profile repository saves and updates the single profile', () async {
-    final repository = ProfileRepository(database);
+    final repository = ProfileRepository(store);
     final createdAt = DateTime(2026, 5, 25, 9);
 
     final profile = await repository.saveProfile(
@@ -39,7 +36,7 @@ void main() {
   });
 
   test('re-saving applies updates to an existing profile', () async {
-    final repository = ProfileRepository(database);
+    final repository = ProfileRepository(store);
     final createdAt = DateTime(2026, 5, 25, 9);
 
     final first = await repository.saveProfile(
@@ -64,8 +61,8 @@ void main() {
   test(
     'set repository creates a day log and keeps the day goal immutable',
     () async {
-      final setRepository = SetRepository(database);
-      final dayRepository = DayRepository(database);
+      final setRepository = SetRepository(store);
+      final dayRepository = DayRepository(store);
       final loggedAt = DateTime(2026, 5, 25, 7, 30);
 
       final firstSet = await setRepository.addSet(
@@ -85,15 +82,15 @@ void main() {
 
       expect(day.goal, 100);
       expect(day.totalReps, 35);
-      expect(day.setIds, hasLength(2));
+      expect(sets, hasLength(2));
       expect(sets.map((set) => set.reps), [25, 10]);
       expect(sets.first.id, firstSet.id);
     },
   );
 
   test('deleting a set removes it from the day total and set list', () async {
-    final setRepository = SetRepository(database);
-    final dayRepository = DayRepository(database);
+    final setRepository = SetRepository(store);
+    final dayRepository = DayRepository(store);
     final loggedAt = DateTime(2026, 5, 25, 7, 30);
 
     final set = await setRepository.addSet(
@@ -108,13 +105,12 @@ void main() {
 
     expect(day.totalReps, 0);
     expect(day.completedAt, isNull);
-    expect(day.setIds, isEmpty);
     expect(sets, isEmpty);
   });
 
   test('goal completion is stamped when total reaches the day goal', () async {
-    final setRepository = SetRepository(database);
-    final dayRepository = DayRepository(database);
+    final setRepository = SetRepository(store);
+    final dayRepository = DayRepository(store);
     final loggedAt = DateTime(2026, 5, 25, 7, 30);
 
     await setRepository.addSet(

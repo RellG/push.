@@ -23,7 +23,7 @@ Complete technical reference for the Push. Flutter app. Read this before writing
 Push. is a daily pushup tracker for Android, iOS, and the web. The user sets a daily rep goal, logs sets throughout the day, and the day is marked complete when the goal is hit. Streaks reward consecutive completed days. The UX is fast, frictionless, and satisfying — Vercel/Geist aesthetic all the way down.
 
 **Core flows:**
-1. First launch → onboarding (name + goal + theme) → stored in sembast + SharedPreferences → never shown again
+1. First launch → onboarding (name + goal + theme) → stored in Firestore (per anonymous user) + SharedPreferences → never shown again
 2. Home → animated progress ring, quick-add buttons (+5/+10/+20 + custom), today's sets list, streak badge
 3. Goal hit → gradient sweep celebration + haptic + `DayLog.completedAt` stamped
 4. History → GitHub-style heatmap of last 365 days, tap a cell to see day breakdown
@@ -40,7 +40,8 @@ Push. is a daily pushup tracker for Android, iOS, and the web. The user sets a d
 | Language | Dart strict mode |
 | State management | `flutter_riverpod ^2.6.1` |
 | Navigation | `go_router ^17.2.3` |
-| Local database | `sembast ^3.8.5` (file on mobile) + `sembast_web ^2.4.2` (IndexedDB on web) |
+| Backend | Firebase — `firebase_auth` (anonymous sign-in) + `cloud_firestore ^6.x` (per-user data, offline persistence on all platforms) |
+| Legacy local database | `sembast` — kept only for the one-time migration of pre-Firebase local data into Firestore |
 | Preferences | `shared_preferences ^2.5.5` |
 | Charts | `fl_chart ^1.2.0` |
 | Animations | `flutter_animate ^4.5.2` + `AnimationController` |
@@ -68,9 +69,9 @@ lib/
 │       └── theme.dart                # PushTheme.dark() / PushTheme.light()
 ├── data/
 │   ├── db/
-│   │   ├── push_database.dart        # openPushDatabase(), store refs
-│   │   ├── database_factory_io.dart  # file-backed sembast (mobile/desktop)
-│   │   ├── database_factory_web.dart # IndexedDB sembast (web)
+│   │   ├── push_database.dart        # legacy sembast opener (migration only)
+│   │   ├── database_factory_io.dart  # legacy sembast io factory
+│   │   ├── database_factory_web.dart # legacy sembast web factory
 │   │   └── entities/
 │   │       ├── day_log.dart          # DayLog + toMap/fromMap
 │   │       ├── profile.dart          # Profile + toMap/fromMap
@@ -133,34 +134,36 @@ test/
 
 ## Data Model
 
+Firestore layout: `users/{uid}` is the profile document; `users/{uid}/days/{yyyy-MM-dd}` and `users/{uid}/sets/{autoId}` are subcollections. DateTimes are stored as ISO-8601 strings.
+
 ### `PushupSet`
 Individual set within a day.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | `Id` | auto-increment |
+| `id` | `String` | Firestore auto-id |
 | `reps` | `int` | validated > 0 in `SetRepository.addSet` |
 | `loggedAt` | `DateTime` | timestamp of the log |
+| `date` | `String` | local-day key of `loggedAt`; sets are queried per day through it |
 | `note` | `String?` | optional annotation |
 
 ### `DayLog`
-One record per calendar day (keyed by local date string).
+One document per calendar day; the document id *is* the date key.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | `Id` | auto-increment |
-| `date` | `String` | unique index, `'yyyy-MM-dd'` local tz via `localDateKey()` |
+| `id` | `String` | equals `date` |
+| `date` | `String` | `'yyyy-MM-dd'` local tz via `localDateKey()` |
 | `goal` | `int` | goal at time of first set — immutable per day |
 | `totalReps` | `int` | running sum, maintained atomically by `SetRepository` |
 | `completedAt` | `DateTime?` | stamped on the set that crosses the goal threshold |
-| `setIds` | `List<int>` | ordered list of `PushupSet.id`s for this day |
 
 ### `Profile`
-Singleton — only one row ever exists.
+Singleton per user — lives on the `users/{uid}` document itself.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | `Id` | auto-increment |
+| `id` | `String` | the owner's uid |
 | `name` | `String` | user's display name |
 | `currentGoal` | `int` | current daily target |
 | `themeMode` | `String` | `'dark'` \| `'light'` \| `'system'` |
@@ -199,7 +202,9 @@ All providers live in `lib/providers/app_providers.dart`.
 |---|---|---|
 | `clockProvider` | `Provider<DateTime Function()>` | Injectable clock — always use instead of `DateTime.now()` directly |
 | `todayDateProvider` | `StreamProvider<String>` | Today's date key, e.g. `'2026-05-25'`; re-emits across midnight and on app resume |
-| `databaseProvider` | `FutureProvider<Database>` | Singleton sembast database |
+| `firebaseAuthProvider` / `firestoreProvider` | `Provider` | FirebaseAuth / FirebaseFirestore singletons |
+| `signedInUserProvider` | `FutureProvider<User>` | Anonymous Firebase user (signs in on first launch) |
+| `userFirestoreProvider` | `FutureProvider<UserFirestore>` | The user's `users/{uid}` refs; runs the one-time sembast→Firestore migration first |
 | `sharedPreferencesProvider` | `FutureProvider<SharedPreferences>` | Singleton prefs instance |
 
 ### Repositories
@@ -292,16 +297,16 @@ Walks backwards from today. If today is not complete, starts from yesterday (str
 Sorts the set of completed date strings, then counts the longest run of consecutive days (where consecutive means `difference.inDays == 1`).
 
 ### `SetRepository.addSet` — atomic write
-Single sembast `transaction` that:
-1. Gets or creates today's `DayLog` with the current goal
-2. Writes the `PushupSet`
-3. Updates `DayLog.totalReps` and `setIds`
+Single Firestore `runTransaction` that:
+1. Gets or creates today's `DayLog` (doc id = date key) with the current goal
+2. Writes the `PushupSet` (auto-id, carries a `date` field)
+3. Updates `DayLog.totalReps`
 4. Stamps `DayLog.completedAt` on the set that first crosses the goal (never overwrites if already stamped)
 
 ### `SetRepository.deleteSet` — atomic write
-Single sembast `transaction` that:
-1. Reads the set to find its date
-2. Decrements `DayLog.totalReps`, removes from `setIds`
+Single Firestore `runTransaction` that:
+1. Reads the set to find its `date`
+2. Decrements `DayLog.totalReps`
 3. Clears `DayLog.completedAt` if the new total falls below goal
 4. Deletes the `PushupSet` record
 
@@ -370,7 +375,7 @@ Tests live in `test/` mirroring the `lib/` structure.
 | `test/presentation/widgets/progress_ring_test.dart` | ProgressRing widget |
 | `test/presentation/widgets/quick_add_row_test.dart` | QuickAddRow widget |
 
-Repository tests use a real in-memory sembast database (`newDatabaseFactoryMemory()` from `sembast/sembast_memory.dart`). Never mock the database.
+Repository tests use `FakeFirebaseFirestore` (from `fake_cloud_firestore`) — a faithful in-memory Firestore. Never mock the database by hand.
 
 Run before every commit:
 ```bash
@@ -402,7 +407,7 @@ flutter build web --release        # output in build/web
 
 ## Conventions
 
-- **Architecture boundary:** widgets → providers → repositories → sembast. Widgets never import `sembast` or touch the database directly.
+- **Architecture boundary:** widgets → providers → repositories → Firestore. Widgets never import `cloud_firestore` or touch the database directly.
 - **Date keys:** always use `localDateKey(dateTime)` from `lib/data/repositories/date_key.dart`. Never format dates inline.
 - **Clock injection:** always read time via `ref.read(clockProvider)()`. Never call `DateTime.now()` in feature code — this makes the clock testable.
 - **Theming:** always use `context.colors` (`PushColorTokens`) for color. Never hardcode color literals outside `colors.dart`.

@@ -1,28 +1,24 @@
 import 'package:push_app/data/db/entities/profile.dart';
-import 'package:push_app/data/db/push_database.dart';
-import 'package:sembast/sembast.dart';
+import 'package:push_app/data/firestore/user_firestore.dart';
 
 class ProfileRepository {
-  const ProfileRepository(this._db);
+  const ProfileRepository(this._store);
 
-  final Database _db;
+  final UserFirestore _store;
 
-  Future<Profile?> getProfile() => _getProfile(_db);
+  Future<Profile?> getProfile() async {
+    final snapshot = await _store.profileDoc.get();
+    final data = snapshot.data();
 
-  Future<Profile?> _getProfile(DatabaseClient client) async {
-    final snapshot = await profileStore.findFirst(client);
-
-    return snapshot == null
-        ? null
-        : Profile.fromMap(snapshot.key, snapshot.value);
+    return data == null ? null : Profile.fromMap(snapshot.id, data);
   }
 
   Stream<Profile?> watchProfile() {
-    return profileStore.query().onSnapshots(_db).map(
-          (snapshots) => snapshots.isEmpty
-              ? null
-              : Profile.fromMap(snapshots.first.key, snapshots.first.value),
-        );
+    return _store.profileDoc.snapshots().map((snapshot) {
+      final data = snapshot.data();
+
+      return data == null ? null : Profile.fromMap(snapshot.id, data);
+    });
   }
 
   Future<Profile> saveProfile({
@@ -31,45 +27,44 @@ class ProfileRepository {
     required String themeMode,
     DateTime? createdAt,
   }) {
-    return _db.transaction((txn) async {
-      final existing = await _getProfile(txn);
+    return _store.firestore.runTransaction((txn) async {
+      final snapshot = await txn.get(_store.profileDoc);
+      final data = snapshot.data();
+      final existing =
+          data == null ? null : Profile.fromMap(snapshot.id, data);
       final profile = (existing ?? Profile())
+        ..id = _store.uid
         ..name = name
         ..currentGoal = currentGoal
         ..themeMode = themeMode
         ..createdAt = existing?.createdAt ?? createdAt ?? DateTime.now();
-
-      if (existing == null) {
-        profile.id = await profileStore.add(txn, profile.toMap());
-      } else {
-        await profileStore.record(profile.id).put(txn, profile.toMap());
-      }
+      txn.set(_store.profileDoc, profile.toMap());
 
       return profile;
     });
   }
 
   Future<void> updateGoal(int goal) {
-    return _db.transaction((txn) async {
-      final profile = await _getProfile(txn);
-      if (profile == null) {
+    return _store.firestore.runTransaction((txn) async {
+      final snapshot = await txn.get(_store.profileDoc);
+      if (!snapshot.exists) {
         return;
       }
 
-      profile.currentGoal = goal;
-      await profileStore.record(profile.id).put(txn, profile.toMap());
+      txn.update(_store.profileDoc, <String, Object?>{'currentGoal': goal});
     });
   }
 
   Future<void> updateThemeMode(String themeMode) {
-    return _db.transaction((txn) async {
-      final profile = await _getProfile(txn);
-      if (profile == null) {
+    return _store.firestore.runTransaction((txn) async {
+      final snapshot = await txn.get(_store.profileDoc);
+      if (!snapshot.exists) {
         return;
       }
 
-      profile.themeMode = themeMode;
-      await profileStore.record(profile.id).put(txn, profile.toMap());
+      txn.update(_store.profileDoc, <String, Object?>{
+        'themeMode': themeMode,
+      });
     });
   }
 }

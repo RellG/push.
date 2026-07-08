@@ -16,5 +16,5 @@ Full spec lives in `docs/BRIEF.md`. Read it before doing anything.
 - Default to dark mode. Use Geist Sans / Geist Mono. Vercel-style motion (see brief §Design Language).
 
 ## Stack lock-in
-Flutter • Dart strict • Riverpod 2.x • go_router • sembast • fl_chart • flutter_animate • lucide_icons.
+Flutter • Dart strict • Riverpod 2.x • go_router • Firebase (anonymous auth + Firestore) • fl_chart • flutter_animate • lucide_icons.
 Don't introduce alternatives. If you think the brief is wrong about the stack, ask first.

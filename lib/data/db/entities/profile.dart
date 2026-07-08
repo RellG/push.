@@ -1,7 +1,7 @@
 class Profile {
   Profile();
 
-  factory Profile.fromMap(int id, Map<String, Object?> map) {
+  factory Profile.fromMap(String id, Map<String, Object?> map) {
     return Profile()
       ..id = id
       ..name = map['name']! as String
@@ -10,7 +10,8 @@ class Profile {
       ..createdAt = DateTime.parse(map['createdAt']! as String);
   }
 
-  int id = 0;
+  /// Firestore document id — the owning user's uid.
+  String id = '';
 
   late String name;
 

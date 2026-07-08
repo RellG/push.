@@ -1,11 +1,14 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
 import 'package:push_app/data/db/entities/profile.dart';
 import 'package:push_app/data/db/entities/pushup_set.dart';
-import 'package:push_app/data/db/push_database.dart';
+import 'package:push_app/data/firestore/legacy_migration.dart';
+import 'package:push_app/data/firestore/user_firestore.dart';
 import 'package:push_app/data/repositories/date_key.dart';
 import 'package:push_app/data/repositories/day_repository.dart';
 import 'package:push_app/data/repositories/profile_repository.dart';
@@ -13,7 +16,6 @@ import 'package:push_app/data/repositories/set_repository.dart';
 import 'package:push_app/domain/models/push_stats.dart';
 import 'package:push_app/domain/services/stats_calculator.dart';
 import 'package:push_app/domain/services/streak_calculator.dart';
-import 'package:sembast/sembast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const onboardingCompleteKey = 'onboarding_complete';
@@ -37,8 +39,37 @@ final todayDateProvider = StreamProvider<String>((ref) async* {
   }
 });
 
-final databaseProvider = FutureProvider<Database>((ref) {
-  return openPushDatabase();
+final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
+  return FirebaseAuth.instance;
+});
+
+final firestoreProvider = Provider<FirebaseFirestore>((ref) {
+  return FirebaseFirestore.instance;
+});
+
+/// The anonymous Firebase user backing this install. Signs in on first
+/// launch (requires network once); afterwards the same account is restored
+/// from local storage, including offline.
+final signedInUserProvider = FutureProvider<User>((ref) async {
+  final auth = ref.watch(firebaseAuthProvider);
+  final existing = auth.currentUser;
+  if (existing != null) {
+    return existing;
+  }
+
+  final credential = await auth.signInAnonymously();
+  return credential.user!;
+});
+
+/// The signed-in user's Firestore references. Also runs the one-time
+/// sembast → Firestore migration before anything reads or writes.
+final userFirestoreProvider = FutureProvider<UserFirestore>((ref) async {
+  final user = await ref.watch(signedInUserProvider.future);
+  final store = UserFirestore(ref.watch(firestoreProvider), user.uid);
+  final preferences = await ref.watch(sharedPreferencesProvider.future);
+  await migrateLegacyLocalData(preferences, store);
+
+  return store;
 });
 
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
@@ -53,18 +84,18 @@ final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
 final profileRepositoryProvider = FutureProvider<ProfileRepository>((
   ref,
 ) async {
-  final database = await ref.watch(databaseProvider.future);
-  return ProfileRepository(database);
+  final store = await ref.watch(userFirestoreProvider.future);
+  return ProfileRepository(store);
 });
 
 final dayRepositoryProvider = FutureProvider<DayRepository>((ref) async {
-  final database = await ref.watch(databaseProvider.future);
-  return DayRepository(database);
+  final store = await ref.watch(userFirestoreProvider.future);
+  return DayRepository(store);
 });
 
 final setRepositoryProvider = FutureProvider<SetRepository>((ref) async {
-  final database = await ref.watch(databaseProvider.future);
-  return SetRepository(database);
+  final store = await ref.watch(userFirestoreProvider.future);
+  return SetRepository(store);
 });
 
 final profileProvider = StreamProvider<Profile?>((ref) async* {
@@ -164,24 +195,19 @@ final logSetProvider = Provider<LogSet>((ref) {
 
 final exportJsonProvider = Provider<Future<String> Function()>((ref) {
   return () async {
-    final database = await ref.read(databaseProvider.future);
-    final profileSnapshot = await profileStore.findFirst(database);
-    final profile = profileSnapshot == null
+    final store = await ref.read(userFirestoreProvider.future);
+    final profileSnapshot = await store.profileDoc.get();
+    final profileData = profileSnapshot.data();
+    final profile = profileData == null
         ? null
-        : Profile.fromMap(profileSnapshot.key, profileSnapshot.value);
+        : Profile.fromMap(profileSnapshot.id, profileData);
     final days = [
-      for (final snapshot in await dayLogStore.find(
-        database,
-        finder: Finder(sortOrders: [SortOrder('date')]),
-      ))
-        DayLog.fromMap(snapshot.key, snapshot.value),
+      for (final document in (await store.days.orderBy('date').get()).docs)
+        DayLog.fromMap(document.id, document.data()),
     ];
     final sets = [
-      for (final snapshot in await pushupSetStore.find(
-        database,
-        finder: Finder(sortOrders: [SortOrder('loggedAt')]),
-      ))
-        PushupSet.fromMap(snapshot.key, snapshot.value),
+      for (final document in (await store.sets.orderBy('loggedAt').get()).docs)
+        PushupSet.fromMap(document.id, document.data()),
     ];
 
     return const JsonEncoder.withIndent('  ').convert({
@@ -200,7 +226,6 @@ final exportJsonProvider = Provider<Future<String> Function()>((ref) {
             'goal': day.goal,
             'totalReps': day.totalReps,
             'completedAt': day.completedAt?.toIso8601String(),
-            'setIds': day.setIds,
           },
       ],
       'sets': [
@@ -209,6 +234,7 @@ final exportJsonProvider = Provider<Future<String> Function()>((ref) {
             'id': set.id,
             'reps': set.reps,
             'loggedAt': set.loggedAt.toIso8601String(),
+            'date': set.date,
             'note': set.note,
           },
       ],
@@ -218,53 +244,52 @@ final exportJsonProvider = Provider<Future<String> Function()>((ref) {
 
 final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
   return () async {
-    final database = await ref.read(databaseProvider.future);
+    final store = await ref.read(userFirestoreProvider.future);
     final now = ref.read(clockProvider)();
     final today = DateTime(now.year, now.month, now.day);
 
-    await database.transaction((txn) async {
-      final existingProfile = await profileStore.findFirst(txn);
-      if (existingProfile == null) {
-        final profile = Profile()
-          ..name = 'Demo'
-          ..currentGoal = 100
-          ..themeMode = 'dark'
-          ..createdAt = now;
-        await profileStore.add(txn, profile.toMap());
+    final profileSnapshot = await store.profileDoc.get();
+    final existingDates = {
+      for (final document in (await store.days.get()).docs)
+        document.data()['date']! as String,
+    };
+
+    final batch = store.firestore.batch();
+    if (!profileSnapshot.exists) {
+      final profile = Profile()
+        ..name = 'Demo'
+        ..currentGoal = 100
+        ..themeMode = 'dark'
+        ..createdAt = now;
+      batch.set(store.profileDoc, profile.toMap());
+    }
+
+    for (var offset = 0; offset < 90; offset += 1) {
+      final date = today.subtract(Duration(days: offset));
+      final key = localDateKey(date);
+      if (existingDates.contains(key)) {
+        continue;
       }
 
-      for (var offset = 0; offset < 90; offset += 1) {
-        final date = today.subtract(Duration(days: offset));
-        final key = localDateKey(date);
-        final existingDay = await dayLogStore.findFirst(
-          txn,
-          finder: Finder(filter: Filter.equals('date', key)),
-        );
-        if (existingDay != null) {
-          continue;
-        }
-
-        final reps = offset % 6 == 0 ? 0 : 45 + ((offset * 17) % 95);
-        final setIds = <int>[];
-        if (reps > 0) {
-          final set = PushupSet()
-            ..reps = reps
-            ..loggedAt = DateTime(date.year, date.month, date.day, 12);
-          set.id = await pushupSetStore.add(txn, set.toMap());
-          setIds.add(set.id);
-        }
-
-        final day = DayLog()
-          ..date = key
-          ..goal = 100
-          ..totalReps = reps
-          ..setIds = setIds
-          ..completedAt = reps >= 100
-              ? DateTime(date.year, date.month, date.day, 12)
-              : null;
-        await dayLogStore.add(txn, day.toMap());
+      final reps = offset % 6 == 0 ? 0 : 45 + ((offset * 17) % 95);
+      if (reps > 0) {
+        final set = PushupSet()
+          ..reps = reps
+          ..loggedAt = DateTime(date.year, date.month, date.day, 12)
+          ..date = key;
+        batch.set(store.sets.doc(), set.toMap());
       }
-    });
+
+      final day = DayLog()
+        ..date = key
+        ..goal = 100
+        ..totalReps = reps
+        ..completedAt = reps >= 100
+            ? DateTime(date.year, date.month, date.day, 12)
+            : null;
+      batch.set(store.days.doc(key), day.toMap());
+    }
+    await batch.commit();
 
     ref
       ..invalidate(profileProvider)
@@ -276,21 +301,21 @@ final seedDemoDataProvider = Provider<Future<void> Function()>((ref) {
 });
 
 final allDaysProvider = StreamProvider<List<DayLog>>((ref) async* {
-  final database = await ref.watch(databaseProvider.future);
-  yield* dayLogStore.query().onSnapshots(database).map(
-        (snapshots) => [
-          for (final snapshot in snapshots)
-            DayLog.fromMap(snapshot.key, snapshot.value),
+  final store = await ref.watch(userFirestoreProvider.future);
+  yield* store.days.orderBy('date').snapshots().map(
+        (snapshot) => [
+          for (final document in snapshot.docs)
+            DayLog.fromMap(document.id, document.data()),
         ],
       );
 });
 
 final allSetsProvider = StreamProvider<List<PushupSet>>((ref) async* {
-  final database = await ref.watch(databaseProvider.future);
-  yield* pushupSetStore.query().onSnapshots(database).map(
-        (snapshots) => [
-          for (final snapshot in snapshots)
-            PushupSet.fromMap(snapshot.key, snapshot.value),
+  final store = await ref.watch(userFirestoreProvider.future);
+  yield* store.sets.orderBy('loggedAt').snapshots().map(
+        (snapshot) => [
+          for (final document in snapshot.docs)
+            PushupSet.fromMap(document.id, document.data()),
         ],
       );
 });
