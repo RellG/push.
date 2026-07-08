@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
+import 'package:push_app/data/repositories/date_key.dart';
 import 'package:push_app/providers/app_providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -112,7 +113,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
                 _SettingsSection(
-                  title: 'Account',
+                  title: 'Profile',
                   child: _buildAccountSection(colors),
                 ),
                 const SizedBox(height: 24),
@@ -142,6 +143,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildAccountSection(PushColorTokens colors) {
     final authUser = ref.watch(authUserChangesProvider);
+    final profile = ref.watch(profileProvider).valueOrNull;
     final user = authUser.valueOrNull;
     if (user == null) {
       return Text(
@@ -150,48 +152,168 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     }
 
-    if (!user.isAnonymous) {
-      final providerEmails =
-          user.providerData.map((info) => info.email).whereType<String>();
-      final email = user.email ??
-          (providerEmails.isEmpty ? 'Google account' : providerEmails.first);
-      return Row(
-        children: [
-          Icon(LucideIcons.checkCircle2, size: 18, color: colors.accentMid),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Signed in as $email',
-              style: TextStyle(color: colors.textMuted),
-            ),
-          ),
-        ],
-      );
-    }
+    final name = profile?.name ?? 'Unnamed';
+    final initial = name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
+    final providerEmails =
+        user.providerData.map((info) => info.email).whereType<String>();
+    final email = user.email ??
+        (providerEmails.isEmpty ? null : providerEmails.first);
+    final subtitle = user.isAnonymous
+        ? 'Anonymous account — this device only'
+        : (email ?? 'Google account');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Your data currently lives behind this device only. Link a '
-          'Google account to keep it if the device is lost, and to use '
-          'Push. on other devices.',
-          style: TextStyle(color: colors.textMuted),
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.surfaceAlt,
+                border: Border.all(color: colors.border),
+              ),
+              child: Center(
+                child: Text(
+                  initial,
+                  style: PushTypography.monoNumber(
+                    color: colors.textPrimary,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: profile == null ? null : _editName,
+                        iconSize: 16,
+                        tooltip: 'Edit name',
+                        icon: Icon(
+                          LucideIcons.pencil,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      if (!user.isAnonymous) ...[
+                        Icon(
+                          LucideIcons.checkCircle2,
+                          size: 14,
+                          color: colors.accentMid,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          subtitle,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: _isAuthBusy ? null : _linkGoogle,
-          icon: const Icon(LucideIcons.link),
-          label: const Text('Link Google account'),
-        ),
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: _isAuthBusy ? null : _signInWithGoogle,
-          icon: const Icon(LucideIcons.logIn),
-          label: const Text('Sign in with Google (existing account)'),
-        ),
+        if (profile != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(LucideIcons.calendar, size: 14, color: colors.textMuted),
+              const SizedBox(width: 6),
+              Text(
+                'Member since ',
+                style: TextStyle(color: colors.textMuted, fontSize: 13),
+              ),
+              Text(
+                localDateKey(profile.createdAt),
+                style: PushTypography.monoNumber(
+                  color: colors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (user.isAnonymous) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Link a Google account to keep your data if this device is '
+            'lost, and to use Push. on other devices.',
+            style: TextStyle(color: colors.textMuted),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _isAuthBusy ? null : _linkGoogle,
+            icon: const Icon(LucideIcons.link),
+            label: const Text('Link Google account'),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _isAuthBusy ? null : _signInWithGoogle,
+            icon: const Icon(LucideIcons.logIn),
+            label: const Text('Sign in with Google (existing account)'),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _editName() async {
+    final profile = ref.read(profileProvider).valueOrNull;
+    final controller = TextEditingController(text: profile?.name ?? '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty) {
+      return;
+    }
+
+    final repository = await ref.read(profileRepositoryProvider.future);
+    await repository.updateName(name);
+    ref.invalidate(profileProvider);
   }
 
   Future<void> _linkGoogle() async {

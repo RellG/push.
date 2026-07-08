@@ -44,6 +44,17 @@ class ProfileRepository {
     });
   }
 
+  Future<void> updateName(String name) {
+    return _store.firestore.runTransaction((txn) async {
+      final snapshot = await txn.get(_store.profileDoc);
+      if (!snapshot.exists) {
+        return;
+      }
+
+      txn.update(_store.profileDoc, <String, Object?>{'name': name});
+    });
+  }
+
   Future<void> updateGoal(int goal) {
     return _store.firestore.runTransaction((txn) async {
       final snapshot = await txn.get(_store.profileDoc);

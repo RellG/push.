@@ -35,6 +35,24 @@ void main() {
     expect(saved.createdAt, createdAt);
   });
 
+  test('updateName renames the profile without touching other fields',
+      () async {
+    final repository = ProfileRepository(store);
+    await repository.saveProfile(
+      name: 'Rell',
+      currentGoal: 100,
+      themeMode: 'dark',
+      createdAt: DateTime(2026, 5, 25, 9),
+    );
+
+    await repository.updateName('Rell G');
+
+    final saved = await repository.getProfile();
+    expect(saved!.name, 'Rell G');
+    expect(saved.currentGoal, 100);
+    expect(saved.themeMode, 'dark');
+  });
+
   test('re-saving applies updates to an existing profile', () async {
     final repository = ProfileRepository(store);
     final createdAt = DateTime(2026, 5, 25, 9);
