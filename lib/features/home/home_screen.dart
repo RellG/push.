@@ -24,7 +24,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<DayLog?>>(todayProvider, (previous, next) {
+    // Watching leaderboardSyncProvider keeps this user's public
+    // leaderboard entry fresh as their data changes.
+    ref
+      ..watch(leaderboardSyncProvider)
+      ..listen<AsyncValue<DayLog?>>(todayProvider, (previous, next) {
       final day = next.valueOrNull;
       if (day == null) {
         return;

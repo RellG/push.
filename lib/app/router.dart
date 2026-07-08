@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:push_app/app/theme/motion.dart';
 import 'package:push_app/features/history/history_screen.dart';
 import 'package:push_app/features/home/home_screen.dart';
+import 'package:push_app/features/leaderboard/leaderboard_screen.dart';
 import 'package:push_app/features/onboarding/onboarding_screen.dart';
 import 'package:push_app/features/settings/settings_screen.dart';
 import 'package:push_app/features/stats/stats_screen.dart';
@@ -15,6 +16,7 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const history = '/history';
   static const stats = '/stats';
+  static const leaderboard = '/leaderboard';
   static const settings = '/settings';
 }
 
@@ -63,6 +65,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const StatsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.leaderboard,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const LeaderboardScreen(),
         ),
       ),
       GoRoute(

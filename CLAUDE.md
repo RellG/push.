@@ -107,7 +107,7 @@ The app is **live** at https://push-sm51.onrender.com (Render static site, auto-
 
 Done from the original roadmap: cloud storage, accounts (anonymous + Google linking), cross-device data retrieval. Still **out of scope without the user re-confirming**:
 
-1. **Social** — friends, leaderboards, challenges between buddies (the likely next feature given the user shares the app with friends).
+1. **Social** — a shared leaderboard shipped 2026-07-08 (`leaderboard/{uid}` public-stats docs, synced client-side by `leaderboardSyncProvider`; board readable by any signed-in user, entries writable only by their owner). Further social (challenges, friends) still needs a green light.
 2. **Native store releases** — Android APK/Play and iOS TestFlight (blocked on Xcode install; see Hosts). Add SHA-1 fingerprints to Firebase before Android Google sign-in.
 3. **Monetization** — subscription tier; needs server-side receipt validation.
 

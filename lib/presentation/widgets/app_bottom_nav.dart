@@ -22,6 +22,8 @@ class AppBottomNav extends StatelessWidget {
             context.go(AppRoutes.history);
           case 2:
             context.go(AppRoutes.stats);
+          case 3:
+            context.go(AppRoutes.leaderboard);
         }
       },
       destinations: const [
@@ -39,6 +41,11 @@ class AppBottomNav extends StatelessWidget {
           icon: Icon(Icons.bar_chart_outlined),
           selectedIcon: Icon(Icons.bar_chart),
           label: 'Stats',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.emoji_events_outlined),
+          selectedIcon: Icon(Icons.emoji_events),
+          label: 'Board',
         ),
       ],
     );

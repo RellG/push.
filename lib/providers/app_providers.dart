@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,12 +7,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
+import 'package:push_app/data/db/entities/leaderboard_entry.dart';
 import 'package:push_app/data/db/entities/profile.dart';
 import 'package:push_app/data/db/entities/pushup_set.dart';
 import 'package:push_app/data/firestore/legacy_migration.dart';
 import 'package:push_app/data/firestore/user_firestore.dart';
 import 'package:push_app/data/repositories/date_key.dart';
 import 'package:push_app/data/repositories/day_repository.dart';
+import 'package:push_app/data/repositories/leaderboard_repository.dart';
 import 'package:push_app/data/repositories/profile_repository.dart';
 import 'package:push_app/data/repositories/set_repository.dart';
 import 'package:push_app/domain/models/push_stats.dart';
@@ -414,6 +417,57 @@ final allSetsProvider = StreamProvider<List<PushupSet>>((ref) async* {
             PushupSet.fromMap(document.id, document.data()),
         ],
       );
+});
+
+final leaderboardRepositoryProvider = Provider<LeaderboardRepository>((ref) {
+  return LeaderboardRepository(ref.watch(firestoreProvider));
+});
+
+final leaderboardProvider = StreamProvider<List<LeaderboardEntry>>((
+  ref,
+) async* {
+  await ref.watch(signedInUserProvider.future);
+  yield* ref.watch(leaderboardRepositoryProvider).watchTop();
+});
+
+/// Publishes this user's public stats (name, totals, streak) to the shared
+/// leaderboard whenever their local data changes. Watched by the Home and
+/// Leaderboard screens so the entry stays fresh without any server code.
+final leaderboardSyncProvider = Provider<void>((ref) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  final days = ref.watch(allDaysProvider).valueOrNull;
+  final store = ref.watch(userFirestoreProvider).valueOrNull;
+  if (profile == null || days == null || store == null) {
+    return;
+  }
+
+  final now = ref.watch(clockProvider)();
+  final todayKey = localDateKey(now);
+  var totalReps = 0;
+  var todayReps = 0;
+  for (final day in days) {
+    totalReps += day.totalReps;
+    if (day.date == todayKey) {
+      todayReps = day.totalReps;
+    }
+  }
+
+  final entry = LeaderboardEntry()
+    ..id = store.uid
+    ..name = profile.name
+    ..totalReps = totalReps
+    ..currentStreak =
+        ref.watch(streakCalculatorProvider).currentStreak(days, now)
+    ..todayReps = todayReps
+    ..updatedAt = now;
+  final repository = ref.read(leaderboardRepositoryProvider);
+  unawaited(() async {
+    try {
+      await repository.publish(entry);
+    } on Exception {
+      // Best-effort: the next data change retries.
+    }
+  }());
 });
 
 final streakCalculatorProvider = Provider<StreakCalculator>((ref) {
