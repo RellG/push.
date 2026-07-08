@@ -111,6 +111,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     selected: {_themeMode},
                     onSelectionChanged: (selection) {
                       setState(() => _themeMode = selection.single);
+                      ref
+                          .read(onboardingThemePreviewProvider.notifier)
+                          .state = _themeMode;
                     },
                   ),
                   const SizedBox(height: 32),

@@ -50,4 +50,33 @@ void main() {
     expect(savedThemeMode, 'light');
     expect(completed, isTrue);
   });
+
+  testWidgets('theme selection previews immediately before a profile exists', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        profileProvider.overrideWith((ref) => Stream.value(null)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: PushTheme.dark(),
+          home: const OnboardingScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(container.read(themeModeProvider), ThemeMode.dark);
+
+    await tester.tap(find.text('Light'));
+    await tester.pump();
+
+    expect(container.read(themeModeProvider), ThemeMode.light);
+  });
 }

@@ -72,15 +72,22 @@ final profileProvider = StreamProvider<Profile?>((ref) async* {
   yield* repository.watchProfile();
 });
 
-final themeModeProvider = Provider<ThemeMode>((ref) {
-  final profile = ref.watch(profileProvider);
-  return profile.maybeWhen(
-    data: (value) => switch (value?.themeMode) {
+/// Theme picked during onboarding so the choice previews immediately,
+/// before a profile exists. Ignored once a profile is saved.
+final onboardingThemePreviewProvider = StateProvider<String?>((ref) => null);
+
+ThemeMode _themeModeFromKey(String? key) => switch (key) {
       'light' => ThemeMode.light,
       'system' => ThemeMode.system,
       _ => ThemeMode.dark,
-    },
-    orElse: () => ThemeMode.dark,
+    };
+
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  final preview = ref.watch(onboardingThemePreviewProvider);
+  final profile = ref.watch(profileProvider);
+  return profile.maybeWhen(
+    data: (value) => _themeModeFromKey(value?.themeMode ?? preview),
+    orElse: () => _themeModeFromKey(preview),
   );
 });
 
