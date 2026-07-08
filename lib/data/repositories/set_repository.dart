@@ -61,15 +61,15 @@ class SetRepository {
   }
 
   Future<List<PushupSet>> findSetsForDay(DayLog day) async {
-    final snapshot = await _store.sets
-        .where('date', isEqualTo: day.date)
-        .orderBy('loggedAt')
-        .get();
+    // No orderBy alongside the filter: that combination would require a
+    // composite Firestore index. A day's sets are few; sort client-side.
+    final snapshot =
+        await _store.sets.where('date', isEqualTo: day.date).get();
 
     return [
       for (final document in snapshot.docs)
         PushupSet.fromMap(document.id, document.data()),
-    ];
+    ]..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
   }
 
   Future<void> deleteSet(String setId) {
