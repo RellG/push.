@@ -93,15 +93,16 @@ If the user asks Claude to "run the app" or "fire up an emulator" from the Windo
 
 ## Production state (as of 2026-07-08)
 
-The app is **live** at https://push-sm51.onrender.com (Render static site, auto-deploys on push to `main`). Backend is Firebase project **`push-d9e0b`** (owned by the user's Google account):
+The app is **live** at **https://bussdown.space** (canonical; Cloudflare-proxied custom domain) and https://push-sm51.onrender.com (legacy URL, same Render static site, auto-deploys on push to `main`). Backend is Firebase project **`push-d9e0b`** (owned by the user's Google account):
 
-- **Anonymous auth** on first launch (zero-friction by design — the user explicitly does not want visitors to need an email) with **optional Google linking** in Settings → Profile (`linkWithPopup` on web, `linkWithProvider` on native; same uid, data preserved).
+- **Anonymous auth** on first launch (zero-friction by design — the user explicitly does not want visitors to need an email) with **optional Google linking** in Settings → Profile (`linkWithPopup` on web, `linkWithProvider` on native; same uid, data preserved) and **Google sign-in on the onboarding screen** for returning users. Anonymous accounts are per-origin: switching domains or reinstalling the iOS PWA starts fresh unless the user linked Google.
 - **Firestore** `users/{uid}` tree with offline persistence; `firestore.rules` (deploy with `~/.npm-global/bin/firebase deploy --only firestore:rules`) restricts each user to their own data.
 - **Admin/monitoring** = Firebase console (Authentication tab for users, Firestore tab for their data). This is how the user watches friends' pushup counts — don't build a custom admin UI without being asked.
-- `push-sm51.onrender.com` must stay in Firebase Auth **authorized domains** or Google sign-in breaks with "The requested action is invalid".
+- Every serving domain (`bussdown.space`, `www.bussdown.space`, `push-sm51.onrender.com`) must be in Firebase Auth **authorized domains** or Google sign-in breaks with "The requested action is invalid". Verify the live allowlist without console access via `curl 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=<web apiKey>'`.
 - Firebase client keys in the repo are **public by design**; never treat them as leaked secrets. Real secrets still never go in the repo.
 - Avoid Firestore queries that combine a `where` filter with `orderBy` on another field — they demand composite indexes and crash in production (`failed-precondition`). Filter server-side, sort small result sets client-side.
 - PWA icons (`web/icons/`, white pushup figure on black) are the approved brand mark; regenerate with PIL if needed and reuse for native launcher icons when mobile builds happen.
+- `web/index.html` carries the **TK Core monitoring tracker** (the user's own client-site dashboard at console.tktechnology.org). Keep the script tag when touching the web shell; it fires one view per app load.
 
 ## Post-v1 roadmap (not yet in scope)
 
@@ -111,4 +112,10 @@ Done from the original roadmap: cloud storage, accounts (anonymous + Google link
 2. **Native store releases** — Android APK/Play and iOS TestFlight (blocked on Xcode install; see Hosts). Add SHA-1 fingerprints to Firebase before Android Google sign-in.
 3. **Monetization** — subscription tier; needs server-side receipt validation.
 
-Known improvement backlog the user has already seen (pick up when asked): link-Google nudge banner for anonymous users, offline first-launch screen, new-version reload toast, cap stats reads at last 365 days, restrict the web API key to known domains, custom domain.
+Decisions already made (don't re-litigate, don't build unprompted):
+
+- **AI/Gemini: declined for now** (2026-07-08). If ever revisited, the agreed toe-in-the-water is a weekly coach recap via Firebase AI Logic on the Gemini free tier — nothing else.
+- **Daily reminder notifications: deferred to the native-build milestone.** Use `flutter_local_notifications` (already a dependency, desugaring configured) — NOT Cloud Functions/FCM, which would force the Blaze plan. Nothing in the data model needs a midnight reset; days are date-keyed and streaks are computed client-side.
+- **Firebase Analytics: skipped** — TK Core + the Firebase console already cover the user's monitoring needs.
+
+Known improvement backlog the user has already seen (pick up when asked): link-Google nudge banner for anonymous users, offline first-launch screen, new-version reload toast, cap stats reads at last 365 days, restrict the web API key to known domains.
