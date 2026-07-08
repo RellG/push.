@@ -127,6 +127,33 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         : const Icon(LucideIcons.arrowRight),
                     label: const Text('Continue'),
                   ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: colors.border)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'or',
+                          style: TextStyle(color: colors.textMuted),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: colors.border)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: _isSubmitting ? null : _signInWithGoogle,
+                    icon: const Icon(LucideIcons.logIn),
+                    label: const Text('Sign in with Google'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Already used Push. before? Sign in to pick up your '
+                    'streak where you left off.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
+                  ),
                 ],
               ),
             ),
@@ -156,6 +183,44 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     widget.onCompleted?.call();
     if (widget.onCompleted == null) {
       context.go(AppRoutes.home);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isSubmitting = true);
+    final result = await ref.read(signInWithGoogleProvider)();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isSubmitting = false);
+    switch (result) {
+      case GoogleAuthResult.success:
+        final hasProfile =
+            await ref.read(onboardingCompleteProvider.future);
+        if (!mounted) {
+          return;
+        }
+        if (hasProfile) {
+          // Returning user — straight to their data.
+          widget.onCompleted?.call();
+          if (widget.onCompleted == null) {
+            context.go(AppRoutes.home);
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Signed in — finish setup to continue.'),
+            ),
+          );
+        }
+      case GoogleAuthResult.canceled:
+        break;
+      case GoogleAuthResult.failed:
+      case GoogleAuthResult.accountAlreadyLinked:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign-in failed. Try again.')),
+        );
     }
   }
 }
