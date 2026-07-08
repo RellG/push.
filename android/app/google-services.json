@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "802199677448",
+    "project_id": "push-d9e0b",
+    "storage_bucket": "push-d9e0b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802199677448:android:37fd6ac5088049e4417fbd",
+        "android_client_info": {
+          "package_name": "com.tktechnology.push"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9qifP-w7_FV3dhvV3p8ZoOdZS4zYEW14"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
