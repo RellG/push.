@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
@@ -59,6 +60,87 @@ final signedInUserProvider = FutureProvider<User>((ref) async {
 
   final credential = await auth.signInAnonymously();
   return credential.user!;
+});
+
+/// Live auth state, including provider-link changes (e.g. right after
+/// linking Google), which `authStateChanges` alone would not emit.
+final authUserChangesProvider = StreamProvider<User?>((ref) {
+  return ref.watch(firebaseAuthProvider).userChanges();
+});
+
+enum GoogleAuthResult { success, canceled, accountAlreadyLinked, failed }
+
+const _googleAuthCancelCodes = {
+  'popup-closed-by-user',
+  'cancelled-popup-request',
+  'user-cancelled',
+  'web-context-cancelled',
+  'web-context-canceled',
+  'canceled',
+};
+
+/// Attaches a Google identity to the current anonymous user. The uid — and
+/// therefore every Firestore document — stays exactly the same.
+final linkGoogleAccountProvider =
+    Provider<Future<GoogleAuthResult> Function()>((ref) {
+  return () async {
+    final auth = ref.read(firebaseAuthProvider);
+    final user = auth.currentUser;
+    if (user == null) {
+      return GoogleAuthResult.failed;
+    }
+
+    try {
+      if (kIsWeb) {
+        await user.linkWithPopup(GoogleAuthProvider());
+      } else {
+        await user.linkWithProvider(GoogleAuthProvider());
+      }
+    } on FirebaseAuthException catch (error) {
+      if (_googleAuthCancelCodes.contains(error.code)) {
+        return GoogleAuthResult.canceled;
+      }
+      if (error.code == 'credential-already-in-use' ||
+          error.code == 'email-already-in-use' ||
+          error.code == 'provider-already-linked') {
+        return GoogleAuthResult.accountAlreadyLinked;
+      }
+      return GoogleAuthResult.failed;
+    }
+
+    return GoogleAuthResult.success;
+  };
+});
+
+/// Signs into an existing Google-linked account, replacing the current
+/// session on this device, then rebuilds the data chain on the new uid.
+final signInWithGoogleProvider =
+    Provider<Future<GoogleAuthResult> Function()>((ref) {
+  return () async {
+    final auth = ref.read(firebaseAuthProvider);
+    try {
+      if (kIsWeb) {
+        await auth.signInWithPopup(GoogleAuthProvider());
+      } else {
+        await auth.signInWithProvider(GoogleAuthProvider());
+      }
+    } on FirebaseAuthException catch (error) {
+      return _googleAuthCancelCodes.contains(error.code)
+          ? GoogleAuthResult.canceled
+          : GoogleAuthResult.failed;
+    }
+
+    ref.invalidate(signedInUserProvider);
+    // Sync the local onboarding flag with whether this account has a
+    // profile: skip onboarding for returning users, run it for new ones.
+    final store = await ref.read(userFirestoreProvider.future);
+    final profileSnapshot = await store.profileDoc.get();
+    final preferences = await ref.read(sharedPreferencesProvider.future);
+    await preferences.setBool(onboardingCompleteKey, profileSnapshot.exists);
+    ref.invalidate(onboardingCompleteProvider);
+
+    return GoogleAuthResult.success;
+  };
 });
 
 /// The signed-in user's Firestore references. Also runs the one-time

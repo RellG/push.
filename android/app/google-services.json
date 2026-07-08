@@ -12,7 +12,12 @@
           "package_name": "com.tktechnology.push"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "802199677448-v8ddpbf20tcjj6g6gj0neefv872f0d9k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA9qifP-w7_FV3dhvV3p8ZoOdZS4zYEW14"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "802199677448-v8ddpbf20tcjj6g6gj0neefv872f0d9k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "802199677448-3hft8e366mbak9m416gu18rn9174qkp8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tktechnology.push"
+              }
+            }
+          ]
         }
       }
     }

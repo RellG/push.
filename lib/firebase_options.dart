@@ -63,13 +63,13 @@ class DefaultFirebaseOptions {
     projectId: 'push-d9e0b',
     storageBucket: 'push-d9e0b.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDGpaXEyknexSFPzBoz14w48u42RzBDaRc',
     appId: '1:802199677448:ios:19aaeb79faaafa49417fbd',
     messagingSenderId: '802199677448',
     projectId: 'push-d9e0b',
     storageBucket: 'push-d9e0b.firebasestorage.app',
+    iosClientId: '802199677448-3hft8e366mbak9m416gu18rn9174qkp8.apps.googleusercontent.com',
     iosBundleId: 'com.tktechnology.push',
   );
 }

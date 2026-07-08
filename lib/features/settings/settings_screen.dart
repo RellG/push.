@@ -21,6 +21,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _themeMode = 'dark';
   var _isSavingGoal = false;
   var _isExporting = false;
+  var _isAuthBusy = false;
 
   @override
   void dispose() {
@@ -111,6 +112,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
                 _SettingsSection(
+                  title: 'Account',
+                  child: _buildAccountSection(colors),
+                ),
+                const SizedBox(height: 24),
+                _SettingsSection(
                   title: 'Data',
                   child: OutlinedButton.icon(
                     onPressed: _isExporting ? null : _exportJson,
@@ -132,6 +138,128 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildAccountSection(PushColorTokens colors) {
+    final authUser = ref.watch(authUserChangesProvider);
+    final user = authUser.valueOrNull;
+    if (user == null) {
+      return Text(
+        'Connecting…',
+        style: TextStyle(color: colors.textMuted),
+      );
+    }
+
+    if (!user.isAnonymous) {
+      final providerEmails =
+          user.providerData.map((info) => info.email).whereType<String>();
+      final email = user.email ??
+          (providerEmails.isEmpty ? 'Google account' : providerEmails.first);
+      return Row(
+        children: [
+          Icon(LucideIcons.checkCircle2, size: 18, color: colors.accentMid),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Signed in as $email',
+              style: TextStyle(color: colors.textMuted),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Your data currently lives behind this device only. Link a '
+          'Google account to keep it if the device is lost, and to use '
+          'Push. on other devices.',
+          style: TextStyle(color: colors.textMuted),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _isAuthBusy ? null : _linkGoogle,
+          icon: const Icon(LucideIcons.link),
+          label: const Text('Link Google account'),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: _isAuthBusy ? null : _signInWithGoogle,
+          icon: const Icon(LucideIcons.logIn),
+          label: const Text('Sign in with Google (existing account)'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _linkGoogle() async {
+    setState(() => _isAuthBusy = true);
+    final result = await ref.read(linkGoogleAccountProvider)();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isAuthBusy = false);
+    final message = switch (result) {
+      GoogleAuthResult.success =>
+        'Google account linked — your data now follows you across devices.',
+      GoogleAuthResult.accountAlreadyLinked =>
+        'That Google account already has Push. data. '
+            'Use "Sign in with Google" instead.',
+      GoogleAuthResult.failed => 'Could not link the Google account.',
+      GoogleAuthResult.canceled => null,
+    };
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Switch account?'),
+        content: const Text(
+          'Pushups logged on this device before signing in will not '
+          'follow you to the Google account.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign in'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _isAuthBusy = true);
+    final result = await ref.read(signInWithGoogleProvider)();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isAuthBusy = false);
+    final message = switch (result) {
+      GoogleAuthResult.success => 'Signed in with Google.',
+      GoogleAuthResult.failed => 'Google sign-in failed.',
+      _ => null,
+    };
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   Future<void> _saveGoal() async {
