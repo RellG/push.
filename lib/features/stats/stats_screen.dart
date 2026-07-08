@@ -52,7 +52,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 const SizedBox(height: 24),
                 stats.when(
                   data: _buildStats,
-                  error: (error, stackTrace) => Text(error.toString()),
+                  error: (error, stackTrace) =>
+                      const Text('Unable to load — check your connection.'),
                   loading: () => const SizedBox(
                     height: 240,
                     child: Center(child: CircularProgressIndicator()),

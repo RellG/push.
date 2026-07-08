@@ -37,7 +37,8 @@ class HistoryScreen extends ConsumerWidget {
                     today: today,
                     onDaySelected: (day) => _showDay(context, day),
                   ),
-                  error: (error, stackTrace) => Text(error.toString()),
+                  error: (error, stackTrace) =>
+                      const Text('Unable to load — check your connection.'),
                   loading: () => const SizedBox(
                     height: 160,
                     child: Center(child: CircularProgressIndicator()),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
@@ -84,7 +85,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             error: (error, stackTrace) => _MessageState(
                               title: 'Unable to load today',
-                              detail: error.toString(),
+                              detail:
+                                  'Check your connection and try again.',
+                              onRetry: _retryToday,
                             ),
                             loading: () => const _LoadingBlock(height: 248),
                           ),
@@ -93,20 +96,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(24, 32, 24, 8),
-                          child: QuickAddRow(
-                            onAdd: (reps) =>
-                                ref.read(logSetProvider)(reps: reps),
-                          ),
+                          child: QuickAddRow(onAdd: _logSet),
                         ),
                       ),
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
                         sliver: sets.when(
-                          data: (value) => _SetsList(sets: value),
+                          data: (value) => _SetsList(
+                            sets: value,
+                            onDelete: _deleteSet,
+                          ),
                           error: (error, stackTrace) => SliverToBoxAdapter(
                             child: _MessageState(
                               title: 'Unable to load sets',
-                              detail: error.toString(),
+                              detail:
+                                  'Check your connection and try again.',
+                              onRetry: _retryToday,
                             ),
                           ),
                           loading: () => const SliverToBoxAdapter(
@@ -124,6 +129,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  void _retryToday() {
+    ref
+      ..invalidate(todayDateProvider)
+      ..invalidate(todayProvider)
+      ..invalidate(todaySetsProvider)
+      ..invalidate(allDaysProvider)
+      ..invalidate(allSetsProvider);
+  }
+
+  Future<void> _logSet(int reps) async {
+    try {
+      await ref.read(logSetProvider)(reps: reps);
+    } on Exception {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't log the set — check your connection."),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteSet(PushupSet set) async {
+    try {
+      await ref.read(deleteSetProvider)(set.id);
+    } on Exception {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't delete the set — check your connection."),
+        ),
+      );
+    }
   }
 }
 
@@ -185,9 +229,13 @@ class _ProgressSection extends StatelessWidget {
 }
 
 class _SetsList extends StatelessWidget {
-  const _SetsList({required this.sets});
+  const _SetsList({
+    required this.sets,
+    required this.onDelete,
+  });
 
   final List<PushupSet> sets;
+  final void Function(PushupSet set) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -210,32 +258,51 @@ class _SetsList extends StatelessWidget {
         final set = sets[index];
         final time = TimeOfDay.fromDateTime(set.loggedAt).format(context);
 
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            border: Border.all(color: colors.border),
-            borderRadius: BorderRadius.circular(12),
+        return Dismissible(
+          key: ValueKey(set.id),
+          direction: DismissDirection.endToStart,
+          onDismissed: (direction) => onDelete(set),
+          background: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.error.withValues(alpha: 0.12),
+              border: Border.all(color: colors.error),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Icon(LucideIcons.trash2, size: 18, color: colors.error),
+              ),
+            ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    time,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colors.textMuted,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border.all(color: colors.border),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      time,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colors.textMuted,
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  set.reps.toString(),
-                  style: PushTypography.monoNumber(
-                    color: colors.textPrimary,
-                    fontSize: 20,
+                  Text(
+                    set.reps.toString(),
+                    style: PushTypography.monoNumber(
+                      color: colors.textPrimary,
+                      fontSize: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -264,10 +331,12 @@ class _MessageState extends StatelessWidget {
   const _MessageState({
     required this.title,
     required this.detail,
+    this.onRetry,
   });
 
   final String title;
   final String detail;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -290,6 +359,14 @@ class _MessageState extends StatelessWidget {
               detail,
               style: textTheme.bodyMedium?.copyWith(color: colors.textMuted),
             ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(LucideIcons.refreshCw, size: 16),
+                label: const Text('Retry'),
+              ),
+            ],
           ],
         ),
       ),

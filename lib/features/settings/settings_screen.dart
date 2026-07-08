@@ -92,7 +92,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     );
                   },
-                  error: (error, stackTrace) => Text(error.toString()),
+                  error: (error, stackTrace) =>
+                      const Text('Unable to load — check your connection.'),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                 ),

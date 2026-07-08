@@ -275,6 +275,20 @@ final logSetProvider = Provider<LogSet>((ref) {
   };
 });
 
+typedef DeleteSet = Future<void> Function(String setId);
+
+final deleteSetProvider = Provider<DeleteSet>((ref) {
+  return (setId) async {
+    final repository = await ref.read(setRepositoryProvider.future);
+    await repository.deleteSet(setId);
+    ref
+      ..invalidate(todayProvider)
+      ..invalidate(todaySetsProvider)
+      ..invalidate(allDaysProvider)
+      ..invalidate(allSetsProvider);
+  };
+});
+
 final exportJsonProvider = Provider<Future<String> Function()>((ref) {
   return () async {
     final store = await ref.read(userFirestoreProvider.future);
