@@ -24,6 +24,8 @@ class _PushMaterialApp extends ConsumerStatefulWidget {
 
 class _PushMaterialAppState extends ConsumerState<_PushMaterialApp>
     with WidgetsBindingObserver {
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
   @override
   void initState() {
     super.initState();
@@ -50,9 +52,25 @@ class _PushMaterialAppState extends ConsumerState<_PushMaterialApp>
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
+    // Surface auth failures (including redirect errors that land on a fresh
+    // page load) as a SnackBar. On a mobile PWA the browser console is out of
+    // reach, so this is the only place a sign-in error is actually visible.
+    ref.listen<String?>(lastAuthErrorProvider, (previous, next) {
+      if (next == null) {
+        return;
+      }
+      _scaffoldMessengerKey.currentState
+        ?..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text('Sign-in error: $next')));
+      // Clear so the same error doesn't re-fire on rebuild; the re-entrant
+      // callback hits the null early-return above.
+      ref.read(lastAuthErrorProvider.notifier).state = null;
+    });
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Push.',
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: PushTheme.light(),
       darkTheme: PushTheme.dark(),
       themeMode: themeMode,

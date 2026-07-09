@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -46,6 +47,13 @@ final todayDateProvider = StreamProvider<String>((ref) async* {
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
   return FirebaseAuth.instance;
 });
+
+/// The code of the most recent Google auth failure, if any. Set whenever a
+/// sign-in/link attempt throws (including redirect failures surfaced on the
+/// next page load) so the UI can show it and it's not silently swallowed.
+/// The app shell listens to this to raise a SnackBar — the only practical way
+/// to read an error on a mobile PWA where the browser console is unreachable.
+final lastAuthErrorProvider = StateProvider<String?>((ref) => null);
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
@@ -95,7 +103,10 @@ final linkGoogleAccountProvider =
 
     try {
       if (kIsWeb) {
-        await user.linkWithPopup(GoogleAuthProvider());
+        // Popups are unreliable in mobile browsers and installed PWAs, so use
+        // the redirect flow. The page unloads here; the link completes in
+        // [_redirectCompletionProvider] after the browser navigates back.
+        await user.linkWithRedirect(GoogleAuthProvider());
       } else {
         await user.linkWithProvider(GoogleAuthProvider());
       }
@@ -103,6 +114,12 @@ final linkGoogleAccountProvider =
       if (_googleAuthCancelCodes.contains(error.code)) {
         return GoogleAuthResult.canceled;
       }
+      developer.log(
+        'Google account link failed',
+        name: 'push.auth',
+        error: '${error.code}: ${error.message}',
+      );
+      ref.read(lastAuthErrorProvider.notifier).state = error.code;
       if (error.code == 'credential-already-in-use' ||
           error.code == 'email-already-in-use' ||
           error.code == 'provider-already-linked') {
@@ -123,27 +140,75 @@ final signInWithGoogleProvider =
     final auth = ref.read(firebaseAuthProvider);
     try {
       if (kIsWeb) {
-        await auth.signInWithPopup(GoogleAuthProvider());
-      } else {
-        await auth.signInWithProvider(GoogleAuthProvider());
+        // Popups are unreliable in mobile browsers and installed PWAs, so use
+        // the redirect flow. The page unloads here; sign-in completes in
+        // [_redirectCompletionProvider] after the browser navigates back, and
+        // the router routes the returning user on that fresh load. The value
+        // below is effectively never returned on web.
+        await auth.signInWithRedirect(GoogleAuthProvider());
+        return GoogleAuthResult.success;
       }
+      await auth.signInWithProvider(GoogleAuthProvider());
     } on FirebaseAuthException catch (error) {
-      return _googleAuthCancelCodes.contains(error.code)
-          ? GoogleAuthResult.canceled
-          : GoogleAuthResult.failed;
+      if (_googleAuthCancelCodes.contains(error.code)) {
+        return GoogleAuthResult.canceled;
+      }
+      developer.log(
+        'Google sign-in failed',
+        name: 'push.auth',
+        error: '${error.code}: ${error.message}',
+      );
+      ref.read(lastAuthErrorProvider.notifier).state = error.code;
+      return GoogleAuthResult.failed;
     }
 
     ref.invalidate(signedInUserProvider);
-    // Sync the local onboarding flag with whether this account has a
-    // profile: skip onboarding for returning users, run it for new ones.
-    final store = await ref.read(userFirestoreProvider.future);
-    final profileSnapshot = await store.profileDoc.get();
-    final preferences = await ref.read(sharedPreferencesProvider.future);
-    await preferences.setBool(onboardingCompleteKey, profileSnapshot.exists);
+    await _syncOnboardingCompleteFlag(ref);
     ref.invalidate(onboardingCompleteProvider);
 
     return GoogleAuthResult.success;
   };
+});
+
+/// Points the local onboarding flag at whether the currently signed-in account
+/// has a profile: returning users skip onboarding, new ones run it. Reads
+/// through the user data chain, so callers that just switched accounts must
+/// invalidate [signedInUserProvider] first.
+Future<void> _syncOnboardingCompleteFlag(Ref ref) async {
+  final store = await ref.read(userFirestoreProvider.future);
+  final profileSnapshot = await store.profileDoc.get();
+  final preferences = await ref.read(sharedPreferencesProvider.future);
+  await preferences.setBool(onboardingCompleteKey, profileSnapshot.exists);
+}
+
+/// Web only: completes a Google sign-in/link redirect started on the previous
+/// page load. [FirebaseAuth.signInWithRedirect] navigates away, so the result
+/// arrives on the next load via [FirebaseAuth.getRedirectResult]. When a
+/// redirect just landed we re-point the onboarding flag at the resulting
+/// account; a failed redirect surfaces its code via [lastAuthErrorProvider].
+/// Resolves immediately (does nothing) on native platforms.
+final _redirectCompletionProvider = FutureProvider<void>((ref) async {
+  if (!kIsWeb) {
+    return;
+  }
+  final auth = ref.watch(firebaseAuthProvider);
+  final UserCredential result;
+  try {
+    result = await auth.getRedirectResult();
+  } on FirebaseAuthException catch (error) {
+    developer.log(
+      'Google redirect sign-in returned an error',
+      name: 'push.auth',
+      error: '${error.code}: ${error.message}',
+    );
+    ref.read(lastAuthErrorProvider.notifier).state = error.code;
+    return;
+  }
+  // A null user means no redirect operation was pending on this load.
+  if (result.user == null) {
+    return;
+  }
+  await _syncOnboardingCompleteFlag(ref);
 });
 
 /// The signed-in user's Firestore references. Also runs the one-time
@@ -162,6 +227,11 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
 });
 
 final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
+  if (kIsWeb) {
+    // Let any pending Google redirect finish first — it may flip the flag —
+    // so the router routes a returning Google user straight to their data.
+    await ref.watch(_redirectCompletionProvider.future);
+  }
   final preferences = await ref.watch(sharedPreferencesProvider.future);
   return preferences.getBool(onboardingCompleteKey) ?? false;
 });
