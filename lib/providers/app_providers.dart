@@ -64,7 +64,11 @@ final firestoreProvider = Provider<FirebaseFirestore>((ref) {
 /// from local storage, including offline.
 final signedInUserProvider = FutureProvider<User>((ref) async {
   final auth = ref.watch(firebaseAuthProvider);
-  final existing = auth.currentUser;
+  // currentUser is null until the SDK finishes restoring the persisted
+  // session (async on web), so wait for the first auth-state event before
+  // deciding — checking currentUser too early would mint a fresh anonymous
+  // account over a restored Google session.
+  final existing = await auth.authStateChanges().first ?? auth.currentUser;
   if (existing != null) {
     return existing;
   }

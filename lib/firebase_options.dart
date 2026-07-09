@@ -51,7 +51,11 @@ class DefaultFirebaseOptions {
     appId: '1:802199677448:web:93d503f6ca86ca00417fbd',
     messagingSenderId: '802199677448',
     projectId: 'push-d9e0b',
-    authDomain: 'push-d9e0b.firebaseapp.com',
+    // The app's own (Cloudflare-proxied) domain, NOT push-d9e0b.firebaseapp.com:
+    // signInWithRedirect only works when the auth handler is same-origin with
+    // the app, so a Cloudflare Worker proxies bussdown.space/__/* to the
+    // Firebase handler. See docs/google-auth-proxy.md before changing.
+    authDomain: 'bussdown.space',
     storageBucket: 'push-d9e0b.firebasestorage.app',
     measurementId: 'G-HDYC5V1FB0',
   );
