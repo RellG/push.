@@ -34,6 +34,39 @@
   <title>Push.</title>
   <link rel="manifest" href="manifest.json">
 
+  <!--
+    Locale guard: some browsers (in-app WebViews, misconfigured devices) report
+    a non-standard tag like "C" or "POSIX" in navigator.languages. Flutter's web
+    engine feeds each tag straight into Intl.Locale, which throws
+    "RangeError: Incorrect locale information provided" and surfaces as an
+    unhandled rejection. Filter the list to tags Intl can actually parse — before
+    flutter_bootstrap.js runs — so the engine only ever sees valid locales.
+  -->
+  <script>
+    (function () {
+      function valid(tag) {
+        try { new Intl.Locale(tag); return true; } catch (e) { return false; }
+      }
+      try {
+        var raw = (navigator.languages && navigator.languages.length)
+          ? navigator.languages
+          : (navigator.language ? [navigator.language] : []);
+        var cleaned = Array.prototype.filter.call(raw, function (t) {
+          return t && valid(t);
+        });
+        if (cleaned.length === 0) { cleaned = ['en-US']; }
+        Object.defineProperty(navigator, 'languages', {
+          configurable: true,
+          get: function () { return cleaned; }
+        });
+        Object.defineProperty(navigator, 'language', {
+          configurable: true,
+          get: function () { return cleaned[0]; }
+        });
+      } catch (e) { /* leave the browser defaults untouched */ }
+    })();
+  </script>
+
   <!-- TK Core site monitoring -->
   <script src="https://console.tktechnology.org/tracker.js?key=tkt-34b9c58de35a24e67b746df71fa2ddba" defer></script>
 
