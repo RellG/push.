@@ -181,20 +181,22 @@ Future<void> _syncOnboardingCompleteFlag(Ref ref) async {
   await preferences.setBool(onboardingCompleteKey, profileSnapshot.exists);
 }
 
-/// Web only: completes a Google sign-in/link redirect started on the previous
-/// page load. [FirebaseAuth.signInWithRedirect] navigates away, so the result
-/// arrives on the next load via [FirebaseAuth.getRedirectResult]. When a
-/// redirect just landed we re-point the onboarding flag at the resulting
-/// account; a failed redirect surfaces its code via [lastAuthErrorProvider].
+/// Web only: settles a Google sign-in/link redirect started on the previous
+/// page load. [FirebaseAuth.signInWithRedirect] navigates away, so the pending
+/// operation is processed on the next load by calling
+/// [FirebaseAuth.getRedirectResult] — which also updates `currentUser`. We do
+/// NOT branch on its returned user: cookie-restricted browsers can report a
+/// null user even after the session is restored, so the onboarding decision is
+/// made from the account's Firestore profile in [onboardingCompleteProvider]
+/// instead. A failed redirect surfaces its code via [lastAuthErrorProvider].
 /// Resolves immediately (does nothing) on native platforms.
 final _redirectCompletionProvider = FutureProvider<void>((ref) async {
   if (!kIsWeb) {
     return;
   }
   final auth = ref.watch(firebaseAuthProvider);
-  final UserCredential result;
   try {
-    result = await auth.getRedirectResult();
+    await auth.getRedirectResult();
   } on FirebaseAuthException catch (error) {
     developer.log(
       'Google redirect sign-in returned an error',
@@ -202,13 +204,7 @@ final _redirectCompletionProvider = FutureProvider<void>((ref) async {
       error: '${error.code}: ${error.message}',
     );
     ref.read(lastAuthErrorProvider.notifier).state = error.code;
-    return;
   }
-  // A null user means no redirect operation was pending on this load.
-  if (result.user == null) {
-    return;
-  }
-  await _syncOnboardingCompleteFlag(ref);
 });
 
 /// The signed-in user's Firestore references. Also runs the one-time
@@ -227,13 +223,35 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
 });
 
 final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
-  if (kIsWeb) {
-    // Let any pending Google redirect finish first — it may flip the flag —
-    // so the router routes a returning Google user straight to their data.
-    await ref.watch(_redirectCompletionProvider.future);
-  }
   final preferences = await ref.watch(sharedPreferencesProvider.future);
-  return preferences.getBool(onboardingCompleteKey) ?? false;
+  final localFlag = preferences.getBool(onboardingCompleteKey) ?? false;
+
+  if (!kIsWeb) {
+    return localFlag;
+  }
+
+  // Web: a returning Google user may sign in from a browser that never ran
+  // onboarding locally, so the local flag alone would loop them back to setup.
+  // Settle any pending redirect, then trust the account's Firestore profile as
+  // the real "has this user onboarded?" signal, healing the local flag.
+  await ref.watch(_redirectCompletionProvider.future);
+  try {
+    final store = await ref.watch(userFirestoreProvider.future);
+    final profile = await store.profileDoc.get();
+    if (profile.exists && !localFlag) {
+      await preferences.setBool(onboardingCompleteKey, true);
+    }
+    return profile.exists || localFlag;
+  } on Exception catch (error) {
+    // Don't demote an onboarded user on a transient read failure; fall back
+    // to whatever the local flag says.
+    developer.log(
+      'Onboarding profile check failed; using local flag',
+      name: 'push.auth',
+      error: error,
+    );
+    return localFlag;
+  }
 });
 
 final profileRepositoryProvider = FutureProvider<ProfileRepository>((
