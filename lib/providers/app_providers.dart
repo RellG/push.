@@ -55,6 +55,12 @@ final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
 /// to read an error on a mobile PWA where the browser console is unreachable.
 final lastAuthErrorProvider = StateProvider<String?>((ref) => null);
 
+/// Breadcrumb describing how the last Google redirect settled (who
+/// getRedirectResult returned vs who is actually signed in). The shell shows
+/// it in a SnackBar when the page URL contains `authdebug` — the only way to
+/// see inside the auth flow on a device with no reachable console.
+final authRedirectDebugProvider = StateProvider<String?>((ref) => null);
+
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
 });
@@ -199,14 +205,28 @@ final _redirectCompletionProvider = FutureProvider<void>((ref) async {
     return;
   }
   final auth = ref.watch(firebaseAuthProvider);
+  String describe(User? user) {
+    if (user == null) {
+      return 'null';
+    }
+    final providers = user.providerData.map((p) => p.providerId).join('+');
+    return '${user.uid.substring(0, 6)}'
+        '(${user.isAnonymous ? 'anon' : providers})';
+  }
+
   try {
-    await auth.getRedirectResult();
+    final result = await auth.getRedirectResult();
+    ref.read(authRedirectDebugProvider.notifier).state =
+        'redirect=${describe(result.user)} '
+        'current=${describe(auth.currentUser)}';
   } on FirebaseAuthException catch (error) {
     developer.log(
       'Google redirect sign-in returned an error',
       name: 'push.auth',
       error: '${error.code}: ${error.message}',
     );
+    ref.read(authRedirectDebugProvider.notifier).state =
+        'redirect threw ${error.code}: ${error.message}';
     ref.read(lastAuthErrorProvider.notifier).state = error.code;
   }
 });
@@ -248,12 +268,16 @@ final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
     return profile.exists || localFlag;
   } on Exception catch (error) {
     // Don't demote an onboarded user on a transient read failure; fall back
-    // to whatever the local flag says.
+    // to whatever the local flag says — but surface it, because a returning
+    // Google user routed by this fallback looks identical to a failed
+    // sign-in.
     developer.log(
       'Onboarding profile check failed; using local flag',
       name: 'push.auth',
       error: error,
     );
+    ref.read(lastAuthErrorProvider.notifier).state =
+        'profile-check-failed: $error';
     return localFlag;
   }
 });
