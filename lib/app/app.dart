@@ -60,12 +60,16 @@ class _PushMaterialAppState extends ConsumerState<_PushMaterialApp>
         if (next == null || !Uri.base.query.contains('authdebug')) {
           return;
         }
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text('auth debug: $next'),
-            duration: const Duration(seconds: 45),
-          ),
-        );
+        // Replace rather than queue: the breadcrumb grows as the flow
+        // progresses, and only the latest (fullest) state matters.
+        _scaffoldMessengerKey.currentState
+          ?..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('auth debug: $next'),
+              duration: const Duration(seconds: 45),
+            ),
+          );
       })
       // Surface auth failures (including redirect errors that land on a
       // fresh page load) as a SnackBar. On a mobile PWA the browser console

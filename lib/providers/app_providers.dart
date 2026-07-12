@@ -602,7 +602,12 @@ final leaderboardSyncProvider = Provider<void>((ref) {
   var totalReps = 0;
   var todayReps = 0;
   for (final day in days) {
-    totalReps += day.totalReps;
+    // Season leaderboard: only days on/after the season start count toward
+    // the published total, so a new race starts everyone from zero without
+    // touching anyone's history.
+    if (day.date.compareTo(leaderboardSeasonStartKey) >= 0) {
+      totalReps += day.totalReps;
+    }
     if (day.date == todayKey) {
       todayReps = day.totalReps;
     }
