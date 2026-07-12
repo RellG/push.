@@ -259,17 +259,31 @@ final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
   // Settle any pending redirect, then trust the account's Firestore profile as
   // the real "has this user onboarded?" signal, healing the local flag.
   await ref.watch(_redirectCompletionProvider.future);
+  // A signed-in Google user is by definition a returning user: never route
+  // them to onboarding on an inconclusive profile read (empty local cache
+  // while the server is unreachable), or they appear to have lost their
+  // account. Their data streams in whenever the connection allows.
+  final user = ref.read(firebaseAuthProvider).currentUser;
+  final isReturningUser = user != null && !user.isAnonymous;
   try {
     final store = await ref.watch(userFirestoreProvider.future);
-    final profile = await store.profileDoc.get();
+    final profile = await _fetchProfileSnapshot(store.profileDoc);
+    _appendAuthDebug(
+      ref,
+      'profile.exists=${profile.exists}'
+      '${profile.metadata.isFromCache ? '(cache)' : '(server)'}',
+    );
     if (profile.exists && !localFlag) {
       await preferences.setBool(onboardingCompleteKey, true);
+    }
+    if (!profile.exists && profile.metadata.isFromCache) {
+      return isReturningUser || localFlag;
     }
     return profile.exists || localFlag;
   } on Exception catch (error) {
     // Don't demote an onboarded user on a transient read failure; fall back
-    // to whatever the local flag says — but surface it, because a returning
-    // Google user routed by this fallback looks identical to a failed
+    // to the returning-user signal and the local flag — and surface the
+    // error, because this fallback otherwise looks identical to a failed
     // sign-in.
     developer.log(
       'Onboarding profile check failed; using local flag',
@@ -278,9 +292,35 @@ final onboardingCompleteProvider = FutureProvider<bool>((ref) async {
     );
     ref.read(lastAuthErrorProvider.notifier).state =
         'profile-check-failed: $error';
-    return localFlag;
+    return isReturningUser || localFlag;
   }
 });
+
+/// Reads the profile doc for the onboarding decision, insisting on a server
+/// answer: a plain get() silently falls back to the (empty, on a fresh
+/// device) local cache when the network blips, which misreads a returning
+/// user as brand new. Retries transient failures, then takes whatever the
+/// SDK can give as a last resort.
+Future<DocumentSnapshot<Map<String, dynamic>>> _fetchProfileSnapshot(
+  DocumentReference<Map<String, dynamic>> profileDoc,
+) async {
+  for (var attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await profileDoc.get(const GetOptions(source: Source.server));
+    } on FirebaseException {
+      await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
+    }
+  }
+  return profileDoc.get();
+}
+
+/// Appends a note to the `authdebug` breadcrumb (see
+/// [authRedirectDebugProvider]).
+void _appendAuthDebug(Ref ref, String note) {
+  final current = ref.read(authRedirectDebugProvider);
+  ref.read(authRedirectDebugProvider.notifier).state =
+      current == null ? note : '$current $note';
+}
 
 final profileRepositoryProvider = FutureProvider<ProfileRepository>((
   ref,
