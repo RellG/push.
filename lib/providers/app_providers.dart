@@ -100,6 +100,15 @@ const _googleAuthCancelCodes = {
   'canceled',
 };
 
+/// Popup failures that mean "this environment can't do popups at all", where
+/// falling back to the redirect flow is worth a shot — as opposed to the user
+/// simply closing the popup.
+const _popupUnsupportedCodes = {
+  'popup-blocked',
+  'operation-not-supported-in-this-environment',
+  'web-storage-unsupported',
+};
+
 /// Attaches a Google identity to the current anonymous user. The uid — and
 /// therefore every Firestore document — stays exactly the same.
 final linkGoogleAccountProvider =
@@ -113,10 +122,20 @@ final linkGoogleAccountProvider =
 
     try {
       if (kIsWeb) {
-        // Popups are unreliable in mobile browsers and installed PWAs, so use
-        // the redirect flow. The page unloads here; the link completes in
-        // [_redirectCompletionProvider] after the browser navigates back.
-        await user.linkWithRedirect(GoogleAuthProvider());
+        // Popup first: the auth handler is same-origin (see
+        // docs/google-auth-proxy.md), which makes popups reliable again, and
+        // the redirect flow's sessionStorage handoff is dropped by iOS
+        // Safari/PWAs. Redirect stays as the fallback for environments that
+        // can't open popups; it completes in [_redirectCompletionProvider]
+        // after the browser navigates back.
+        try {
+          await user.linkWithPopup(GoogleAuthProvider());
+        } on FirebaseAuthException catch (error) {
+          if (!_popupUnsupportedCodes.contains(error.code)) {
+            rethrow;
+          }
+          await user.linkWithRedirect(GoogleAuthProvider());
+        }
       } else {
         await user.linkWithProvider(GoogleAuthProvider());
       }
@@ -150,15 +169,25 @@ final signInWithGoogleProvider =
     final auth = ref.read(firebaseAuthProvider);
     try {
       if (kIsWeb) {
-        // Popups are unreliable in mobile browsers and installed PWAs, so use
-        // the redirect flow. The page unloads here; sign-in completes in
-        // [_redirectCompletionProvider] after the browser navigates back, and
-        // the router routes the returning user on that fresh load. The value
-        // below is effectively never returned on web.
-        await auth.signInWithRedirect(GoogleAuthProvider());
-        return GoogleAuthResult.success;
+        // Popup first: the auth handler is same-origin (see
+        // docs/google-auth-proxy.md), which makes popups reliable again, and
+        // the redirect flow's sessionStorage handoff is dropped by iOS
+        // Safari/PWAs. Redirect stays as the fallback for environments that
+        // can't open popups: the page unloads, sign-in completes in
+        // [_redirectCompletionProvider] on the next load, and the router
+        // routes the returning user there.
+        try {
+          await auth.signInWithPopup(GoogleAuthProvider());
+        } on FirebaseAuthException catch (error) {
+          if (!_popupUnsupportedCodes.contains(error.code)) {
+            rethrow;
+          }
+          await auth.signInWithRedirect(GoogleAuthProvider());
+          return GoogleAuthResult.success;
+        }
+      } else {
+        await auth.signInWithProvider(GoogleAuthProvider());
       }
-      await auth.signInWithProvider(GoogleAuthProvider());
     } on FirebaseAuthException catch (error) {
       if (_googleAuthCancelCodes.contains(error.code)) {
         return GoogleAuthResult.canceled;
