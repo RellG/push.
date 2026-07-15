@@ -407,11 +407,13 @@ final completeOnboardingProvider = Provider<CompleteOnboarding>((ref) {
   }) async {
     final profileRepository = await ref.read(profileRepositoryProvider.future);
     final preferences = await ref.read(sharedPreferencesProvider.future);
+    final now = ref.read(clockProvider)();
 
     await profileRepository.saveProfile(
       name: name,
       currentGoal: currentGoal,
       themeMode: themeMode,
+      createdAt: now,
     );
     await preferences.setBool(onboardingCompleteKey, true);
     ref.invalidate(onboardingCompleteProvider);

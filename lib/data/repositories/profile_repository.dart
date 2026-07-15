@@ -21,11 +21,15 @@ class ProfileRepository {
     });
   }
 
+  /// `createdAt` is required so callers thread the app's injectable clock
+  /// (`ref.read(clockProvider)()`) through instead of this layer calling
+  /// `DateTime.now()` directly — it's only used the first time a profile is
+  /// created; existing profiles keep their original `createdAt`.
   Future<Profile> saveProfile({
     required String name,
     required int currentGoal,
     required String themeMode,
-    DateTime? createdAt,
+    required DateTime createdAt,
   }) {
     return _store.firestore.runTransaction((txn) async {
       final snapshot = await txn.get(_store.profileDoc);
@@ -37,7 +41,7 @@ class ProfileRepository {
         ..name = name
         ..currentGoal = currentGoal
         ..themeMode = themeMode
-        ..createdAt = existing?.createdAt ?? createdAt ?? DateTime.now();
+        ..createdAt = existing?.createdAt ?? createdAt;
       txn.set(_store.profileDoc, profile.toMap());
 
       return profile;

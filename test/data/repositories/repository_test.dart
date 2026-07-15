@@ -67,6 +67,7 @@ void main() {
       name: 'Renamed',
       currentGoal: 200,
       themeMode: 'light',
+      createdAt: DateTime(2026, 6, 2),
     );
 
     expect(second.id, first.id);
