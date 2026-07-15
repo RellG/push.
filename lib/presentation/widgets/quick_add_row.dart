@@ -79,24 +79,32 @@ class _QuickAddRowState extends State<QuickAddRow> {
     );
   }
 
-  Future<void> _add(int reps) async {
+  // The button's press feedback is purely cosmetic, so it resets on its own
+  // short timer instead of waiting on the Firestore round-trip — the write
+  // itself (and its error handling) runs independently via `widget.onAdd`,
+  // so the button feels instant without changing write/error semantics.
+  void _add(int reps) {
     setState(() => _activeReps = reps);
     unawaited(HapticFeedback.lightImpact());
-    await widget.onAdd(reps);
+    unawaited(widget.onAdd(reps));
+    unawaited(_resetActive());
+  }
+
+  Future<void> _resetActive() async {
     await Future<void>.delayed(PushMotion.fast);
     if (mounted) {
       setState(() => _activeReps = null);
     }
   }
 
-  Future<void> _addCustom() async {
+  void _addCustom() {
     final reps = int.tryParse(_customController.text);
     if (reps == null || reps <= 0) {
       return;
     }
 
     _customController.clear();
-    await _add(reps);
+    _add(reps);
   }
 }
 
