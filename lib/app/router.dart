@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:push_app/app/theme/motion.dart';
+import 'package:push_app/features/capture/capture_screen.dart';
 import 'package:push_app/features/history/history_screen.dart';
 import 'package:push_app/features/home/home_screen.dart';
 import 'package:push_app/features/leaderboard/leaderboard_screen.dart';
@@ -18,6 +19,7 @@ abstract final class AppRoutes {
   static const stats = '/stats';
   static const leaderboard = '/leaderboard';
   static const settings = '/settings';
+  static const capture = '/capture';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -72,6 +74,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadePage(
           state: state,
           child: const LeaderboardScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.capture,
+        pageBuilder: (context, state) => _fadePage(
+          state: state,
+          child: const CaptureScreen(),
         ),
       ),
       GoRoute(

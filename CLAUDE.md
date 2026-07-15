@@ -105,6 +105,7 @@ The app is **live** at **https://bussdown.space** (canonical; Cloudflare-proxied
 - Avoid Firestore queries that combine a `where` filter with `orderBy` on another field — they demand composite indexes and crash in production (`failed-precondition`). Filter server-side, sort small result sets client-side.
 - PWA icons (`web/icons/`, white pushup figure on black) are the approved brand mark; regenerate with PIL if needed and reuse for native launcher icons when mobile builds happen.
 - `web/index.html` carries the **TK Core monitoring tracker** (the user's own client-site dashboard at console.tktechnology.org). Keep the script tag when touching the web shell; it fires one view per app load.
+- **Camera auto-count** (2026-07-15): `/capture` counts pushups from the camera. Domain logic (`RepCounter` hysteresis state machine + `DepthEstimator` with elbow-angle/side-view and face-proximity/floor-phone modes) is pure Dart and fully unit-tested. The web engine runs MediaPipe Pose entirely in JS (`web/motion/pose_capture.js`, loaded by index.html; only flat landmark arrays cross into Dart). The MediaPipe runtime + model (~12 MB) load lazily from **pinned CDN URLs** on first use — do NOT vendor them into `web/` (everything there lands in the Flutter service-worker manifest and would bloat every visitor's first load). Native is a stub (`pose_engine_unsupported.dart`) until the ML Kit engine ships with store builds. All inference is on-device; no video leaves the browser.
 
 ## Post-v1 roadmap (not yet in scope)
 

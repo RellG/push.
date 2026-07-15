@@ -84,11 +84,22 @@ lib/
 ├── domain/
 │   ├── models/
 │   │   ├── chart_point.dart          # ChartPoint { date: String, value: int }
-│   │   └── push_stats.dart           # PushStats (all computed stats, PushStats.empty sentinel)
+│   │   ├── push_stats.dart           # PushStats (all computed stats, PushStats.empty sentinel)
+│   │   └── pose_sample.dart          # PoseSample/PosePoint — pose landmarks + flat wire format
 │   └── services/
 │       ├── streak_calculator.dart    # StreakCalculator — currentStreak, longestStreak
-│       └── stats_calculator.dart    # StatsCalculator — calculate(days, sets, today) → PushStats
+│       ├── stats_calculator.dart    # StatsCalculator — calculate(days, sets, today) → PushStats
+│       ├── rep_counter.dart          # RepCounter — hysteresis state machine counting pushup reps
+│       └── depth_estimator.dart      # DepthEstimator — elbow-angle / proximity depth extraction
 ├── features/
+│   ├── capture/
+│   │   ├── capture_screen.dart       # Camera auto-count HUD (intro/calibrate/track/error states)
+│   │   ├── capture_providers.dart    # poseEngineProvider + captureSessionProvider (autoDispose)
+│   │   ├── capture_session_controller.dart  # StateNotifier: engine → DepthEstimator → RepCounter
+│   │   └── pose_engine/
+│   │       ├── pose_engine.dart      # PoseEngine contract + conditional factory
+│   │       ├── pose_engine_web.dart  # MediaPipe via JS interop (web/motion/pose_capture.js)
+│   │       └── pose_engine_unsupported.dart  # native stub until ML Kit lands
 │   ├── onboarding/
 │   │   └── onboarding_screen.dart    # Name + goal + theme picker, calls completeOnboardingProvider
 │   ├── home/
@@ -185,6 +196,7 @@ Defined in `lib/app/router.dart`. All routes use a 250ms fade + 3% y-translate t
 | `AppRoutes.history` | `/history` | `HistoryScreen` |
 | `AppRoutes.stats` | `/stats` | `StatsScreen` |
 | `AppRoutes.settings` | `/settings` | `SettingsScreen` |
+| `AppRoutes.capture` | `/capture` | `CaptureScreen` (camera auto-count; pushed from Home) |
 
 **Redirect logic:** `/` always redirects — to `/onboarding` if `onboardingCompleteProvider` is false, otherwise to `/home`. All other paths are direct.
 

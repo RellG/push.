@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:push_app/app/router.dart';
 import 'package:push_app/app/theme/colors.dart';
 import 'package:push_app/app/theme/typography.dart';
 import 'package:push_app/data/db/entities/day_log.dart';
@@ -101,6 +103,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(24, 32, 24, 8),
                           child: QuickAddRow(onAdd: _logSet),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  context.push(AppRoutes.capture),
+                              icon: const Icon(
+                                LucideIcons.scanLine,
+                                size: 16,
+                              ),
+                              label: const Text('Auto-count with camera'),
+                            ),
+                          ),
                         ),
                       ),
                       SliverPadding(
