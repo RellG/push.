@@ -50,13 +50,10 @@ class HeatmapCalendar extends StatelessWidget {
               child: Column(
                 children: [
                   for (final cell in week)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: _HeatmapCell(
-                        data: cell,
-                        color: _colorForCell(colors, cell.day),
-                        onTap: () => onDaySelected(cell.day),
-                      ),
+                    _HeatmapCell(
+                      data: cell,
+                      color: _colorForCell(colors, cell.day),
+                      onTap: () => onDaySelected(cell.day),
                     ),
                 ],
               ),
@@ -102,9 +99,15 @@ class _HeatmapCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.isEmpty) {
-      return const SizedBox.square(dimension: 12);
+      return const Padding(
+        padding: EdgeInsets.only(right: 4, bottom: 4),
+        child: SizedBox.square(dimension: 12),
+      );
     }
 
+    // The InkWell wraps the trailing 4px gap (owned solely by this cell, so
+    // it never overlaps a neighbor's hit area) to nearly double the tap
+    // target beyond the visible 12px tile.
     return Semantics(
       button: true,
       label: data.day == null
@@ -113,12 +116,15 @@ class _HeatmapCell extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(2),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4, bottom: 4),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: const SizedBox.square(dimension: 12),
           ),
-          child: const SizedBox.square(dimension: 12),
         ),
       ),
     );
