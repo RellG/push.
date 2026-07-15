@@ -58,6 +58,31 @@ void main() {
 
       expect(calculator.currentStreak(days, DateTime(2026, 5, 25, 12)), 2);
     });
+
+    test('counts consecutive days across DST spring-forward', () {
+      // US DST spring-forward 2026: March 8 (March 7 → March 8 loses an
+      // hour). `Duration(days: 1)` truncates that 23h gap and used to skip
+      // a calendar day; the walk must use calendar-day arithmetic instead.
+      final days = [
+        _day('2026-03-06', totalReps: 100, goal: 100),
+        _day('2026-03-07', totalReps: 100, goal: 100),
+        _day('2026-03-08', totalReps: 100, goal: 100),
+        _day('2026-03-09', totalReps: 100, goal: 100),
+      ];
+
+      expect(calculator.currentStreak(days, DateTime(2026, 3, 9, 12)), 4);
+    });
+
+    test('counts consecutive days across DST fall-back', () {
+      // US DST fall-back 2026: November 1 (gains an hour).
+      final days = [
+        _day('2026-10-31', totalReps: 100, goal: 100),
+        _day('2026-11-01', totalReps: 100, goal: 100),
+        _day('2026-11-02', totalReps: 100, goal: 100),
+      ];
+
+      expect(calculator.currentStreak(days, DateTime(2026, 11, 2, 12)), 3);
+    });
   });
 
   group('longestStreak', () {

@@ -9,13 +9,13 @@ class StreakCalculator {
     var cursor = _dateOnly(today);
 
     if (!completedDates.contains(localDateKey(cursor))) {
-      cursor = cursor.subtract(const Duration(days: 1));
+      cursor = _previousDay(cursor);
     }
 
     var streak = 0;
     while (completedDates.contains(localDateKey(cursor))) {
       streak += 1;
-      cursor = cursor.subtract(const Duration(days: 1));
+      cursor = _previousDay(cursor);
     }
 
     return streak;
@@ -65,5 +65,9 @@ class StreakCalculator {
   DateTime _dateOnly(DateTime value) {
     final local = value.toLocal();
     return DateTime(local.year, local.month, local.day);
+  }
+
+  DateTime _previousDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day - 1);
   }
 }
