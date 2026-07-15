@@ -293,6 +293,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
+          maxLength: 60,
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [

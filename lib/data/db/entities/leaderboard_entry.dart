@@ -24,9 +24,14 @@ class LeaderboardEntry {
 
   late DateTime updatedAt;
 
+  /// Matches the `name.size() <= 60` bound enforced by `firestore.rules`.
+  static const _maxNameLength = 60;
+
   Map<String, Object?> toMap() {
     return <String, Object?>{
-      'name': name,
+      'name': name.length > _maxNameLength
+          ? name.substring(0, _maxNameLength)
+          : name,
       'totalReps': totalReps,
       'currentStreak': currentStreak,
       'todayReps': todayReps,

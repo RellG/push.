@@ -56,6 +56,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   TextFormField(
                     controller: _nameController,
                     textInputAction: TextInputAction.next,
+                    maxLength: 60,
                     decoration: const InputDecoration(
                       labelText: 'Name',
                       prefixIcon: Icon(LucideIcons.user),
