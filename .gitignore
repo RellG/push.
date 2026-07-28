@@ -58,3 +58,9 @@ app.*.map.json
 
 # Claude Code working directory
 .claude/
+
+# AI operating docs and internal working notes — keep these local only
+CLAUDE.md
+AGENTS.md
+CODEX.md
+docs/
